@@ -689,7 +689,8 @@ function vet(){
   const ok = (k,m) => { r.steps[k] = {s:'ok', m}; };
   const wait = (k,m) => { r.steps[k] = {s:'wait', m}; if (!r.pending) r.pending = m; };
   const dir = S.dir;
-  if (S.bias === 'zigzag') fail('bias', 'Zigzag: no clear direction');
+  if (S.bias == null) wait('bias', 'Choose a bias check');
+  else if (S.bias === 'zigzag') fail('bias', 'Zigzag: no clear direction');
   else if (S.bias === 'small' && !S.smallOK) fail('bias', 'Small moves: wait for volume and a breakout');
   else ok('bias', S.bias === 'small' ? 'Breakout confirmed' : 'Clear direction');
   if (!dir) { wait('dir', 'Choose bullish or bearish'); return r; }
@@ -1833,9 +1834,10 @@ document.addEventListener('click', e => {
   if (stage) { S.stage = stage.dataset.stage; S.msg = ''; return render(); }
   const pk = e.target.closest('[data-pk][data-pv]');
   if (pk) {
-    S.pre[pk.dataset.pk] = pk.dataset.pv;
-    if (pk.dataset.pk === 'newsCur' && pk.dataset.pv === 'none') S.pre.newsCurType = '';
-    if (pk.dataset.pk === 'newsNext' && pk.dataset.pv === 'none') S.pre.newsNextType = '';
+    const pkv = S.pre[pk.dataset.pk] === pk.dataset.pv ? null : pk.dataset.pv; // click the selected option again to clear it
+    S.pre[pk.dataset.pk] = pkv;
+    if (pk.dataset.pk === 'newsCur' && pkv === 'none') S.pre.newsCurType = '';
+    if (pk.dataset.pk === 'newsNext' && pkv === 'none') S.pre.newsNextType = '';
     S.msg = ''; return render();
   }
   const pm = e.target.closest('[data-pmulti]');
@@ -1848,7 +1850,7 @@ document.addEventListener('click', e => {
     S.pre[key] = arr; return render();
   }
   const cu = e.target.closest('[data-custom]');
-  if (cu) { S.pre.custom = S.pre.custom || {}; S.pre.custom[cu.dataset.custom] = cu.dataset.pv; return render(); }
+  if (cu) { S.pre.custom = S.pre.custom || {}; const cv = cu.dataset.pv; S.pre.custom[cu.dataset.custom] = S.pre.custom[cu.dataset.custom] === cv ? null : cv; return render(); }
   const cm = e.target.closest('[data-cm]');
   if (cm) {
     const id = cm.dataset.cm, v = cm.dataset.pv;
@@ -1858,21 +1860,21 @@ document.addEventListener('click', e => {
     return render();
   }
   const bias = e.target.closest('[data-bias]');
-  if (bias) { S.bias = bias.dataset.pv; return render(); }
+  if (bias) { const v = bias.dataset.pv; S.bias = S.bias === v ? null : v; return render(); }
   const dir = e.target.closest('[data-dir]');
-  if (dir) { S.dir = dir.dataset.pv; return render(); }
+  if (dir) { const v = dir.dataset.pv; S.dir = S.dir === v ? null : v; return render(); }
   const dxy = e.target.closest('[data-dxy]');
-  if (dxy) { S.dxy = dxy.dataset.pv; return render(); }
+  if (dxy) { const v = dxy.dataset.pv; S.dxy = S.dxy === v ? null : v; return render(); }
   const str = e.target.closest('[data-str]');
-  if (str) { S.str[str.dataset.str] = str.dataset.pv; return render(); }
+  if (str) { const k = str.dataset.str, v = str.dataset.pv; S.str[k] = S.str[k] === v ? null : v; return render(); }
   const cmp = e.target.closest('[data-cmp]');
-  if (cmp) { S.cmp = cmp.dataset.pv; return render(); }
+  if (cmp) { const v = cmp.dataset.pv; S.cmp = S.cmp === v ? null : v; return render(); }
   const eg = e.target.closest('[data-eurgbp]');
-  if (eg) { S.eurgbp = eg.dataset.pv; return render(); }
+  if (eg) { const v = eg.dataset.pv; S.eurgbp = S.eurgbp === v ? null : v; return render(); }
   const pp = e.target.closest('[data-pairpick]');
-  if (pp) { S.pairPick = pp.dataset.pv; return render(); }
+  if (pp) { const v = pp.dataset.pv; S.pairPick = S.pairPick === v ? null : v; return render(); }
   const sc = e.target.closest('[data-sc][data-dk][data-pv]');
-  if (sc) { S.dr[sc.dataset.sc][sc.dataset.dk] = sc.dataset.pv; return render(); }
+  if (sc) { const cur = S.dr[sc.dataset.sc], v = sc.dataset.pv; cur[sc.dataset.dk] = cur[sc.dataset.dk] === v ? null : v; return render(); }
   const scm = e.target.closest('[data-sc][data-dm]');
   if (scm) {
     const s = scm.dataset.sc, k = scm.dataset.dm;
@@ -1882,7 +1884,7 @@ document.addEventListener('click', e => {
     S.dr[s][k] = arr; return render();
   }
   const fibr = e.target.closest('[data-fibr]');
-  if (fibr) { const t = LOG.find(x => x.id === S.tid); if (t) { t.fibReached = fibr.dataset.pv; saveAll(); } return render(); }
+  if (fibr) { const t = LOG.find(x => x.id === S.tid); if (t) { const v = fibr.dataset.pv; t.fibReached = t.fibReached === v ? null : v; saveAll(); } return render(); }
   const smallok = e.target.closest('[data-smallok]');
   if (smallok) { S.smallOK = smallok.checked; return render(); }
   const cpass = e.target.closest('[data-cpass]');
