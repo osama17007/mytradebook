@@ -1468,14 +1468,14 @@ function acctCard(a, i){
       </div>
       <p class="sect-label">Stats</p>
       <div class="g4">
-        <div class="inline-lbl"><div class="k">Current balance</div><div class="v">${money(st.cur)}</div></div>
-        <div class="inline-lbl"><div class="k">Realized P&amp;L</div><div class="v ${st.realized < 0 ? 'neg' : st.realized > 0 ? 'pos' : ''}">${money(st.realized)}</div></div>
-        <div class="inline-lbl"><div class="k">Win ratio</div><div class="v">${fmtPct(st.winRate)}</div></div>
-        <div class="inline-lbl"><div class="k">Profit factor</div><div class="v">${pfTxt}</div></div>
-        <div class="inline-lbl"><div class="k">Average win</div><div class="v pos">${money(st.avgWin)}</div></div>
-        <div class="inline-lbl"><div class="k">Average loss</div><div class="v neg">${money(-st.avgLoss)}</div></div>
-        <div class="inline-lbl"><div class="k">Trades taken</div><div class="v">${st.trades}</div></div>
-        <div class="inline-lbl"><div class="k">Closed trades</div><div class="v">${st.closedN}</div></div>
+        <div class="mini"><div class="k">Current balance</div><div class="v">${money(st.cur)}</div></div>
+        <div class="mini"><div class="k">Realized P&amp;L</div><div class="v ${st.realized < 0 ? 'neg' : st.realized > 0 ? 'pos' : ''}">${money(st.realized)}</div></div>
+        <div class="mini"><div class="k">Win ratio</div><div class="v">${fmtPct(st.winRate)}</div></div>
+        <div class="mini"><div class="k">Profit factor</div><div class="v">${pfTxt}</div></div>
+        <div class="mini"><div class="k">Average win</div><div class="v pos">${money(st.avgWin)}</div></div>
+        <div class="mini"><div class="k">Average loss</div><div class="v neg">${money(-st.avgLoss)}</div></div>
+        <div class="mini"><div class="k">Trades taken</div><div class="v">${st.trades}</div></div>
+        <div class="mini"><div class="k">Closed trades</div><div class="v">${st.closedN}</div></div>
       </div>
       <p class="sect-label">Settings</p>
       <div class="g3">
