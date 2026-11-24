@@ -1097,8 +1097,27 @@ function renderNews(){
     bn.className = 'banner alert';
     bn.innerHTML = evs.map(e => `High-impact news ${e.diff <= 0 ? 'now' : 'in ' + Math.ceil(e.diff) + ' min'}: ${esc(e.ccy)} ${esc(e.name)} at ${esc(e.time)}`).join('<br>')
       + ` <button class="btn light sm" style="margin-left:8px" data-act="alarm-on">${S.alarm ? 'Alarm on' : 'Enable alarm sound'}</button>`;
-    evs.forEach(e => { if (!S.notified[e.id]) { S.notified[e.id] = true; if (S.alarm) beep(); } });
+    evs.forEach(e => { if (!S.notified[e.id]) { S.notified[e.id] = true; if (S.alarm) beep(); sendNewsEmail(e, today); } });
   }
+}
+
+// EmailJS settings (free account at emailjs.com). The public key is safe in browser code.
+const MAIL = { service: 'YOUR_SERVICE_ID', template: 'YOUR_TEMPLATE_ID', key: 'YOUR_PUBLIC_KEY', to: 'osama17007@gmail.com' };
+// Sends one email per news event per day, even across devices (sent list is kept in the cloud settings).
+function sendNewsEmail(e, day){
+  if (MAIL.service.startsWith('YOUR_')) return;
+  SET.newsSent = SET.newsSent || [];
+  const key = day + '-' + (e.id || e.ccy + e.name + e.time);
+  if (SET.newsSent.includes(key)) return;
+  const subject = `Trade Gate: ${e.ccy} ${e.name} at ${e.time}`;
+  const message = `High-impact news: ${e.ccy} ${e.name} at ${e.time} (${day}). Check your checklist before trading.`;
+  fetch('https://api.emailjs.com/api/v1.0/email/send', {
+    method: 'POST', headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ service_id: MAIL.service, template_id: MAIL.template, user_id: MAIL.key, template_params: { to_email: MAIL.to, subject, message } })
+  }).then(r => {
+    if (!r.ok) throw new Error('status ' + r.status);
+    SET.newsSent.push(key); cloudPush();
+  }).catch(err => setSync('News email failed: ' + err.message));
 }
 
 function beep(){
