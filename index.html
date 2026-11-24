@@ -1,0 +1,1800 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Trade Gate</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700&display=swap" rel="stylesheet">
+<style>
+:root{--bg:#EEF0F7;--card:#FFFFFF;--ink:#1E1B3A;--muted:#7A7F99;--line:#E4E6F0;--accent:#4B3BF0;--accent-soft:#ECEAFF;--green:#1FA971;--green-soft:#DDF6EA;--red:#E5484D;--red-soft:#FDE5E6;--radius:24px}
+*{box-sizing:border-box}
+html,body{margin:0;min-height:100%}
+body{background:var(--bg);color:var(--ink);font-family:"Plus Jakarta Sans",system-ui,sans-serif;font-size:15px;line-height:1.5;color-scheme:light}
+button,input,select,textarea{font:inherit;color:inherit}
+button{cursor:pointer}
+button:focus-visible,input:focus-visible,select:focus-visible,textarea:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
+.app{display:grid;grid-template-columns:var(--rail,92px) minmax(0,1fr);gap:20px;min-height:100vh;padding:16px 20px 40px 16px;max-width:1400px;margin:0 auto;transition:grid-template-columns .2s ease}
+.app.open{--rail:232px}
+.rail{background:var(--card);border-radius:32px;padding:18px 0;display:flex;flex-direction:column;align-items:center;position:sticky;top:16px;height:calc(100vh - 32px);box-shadow:0 1px 2px rgba(30,27,58,.04);overflow:visible}
+.rail.open{align-items:stretch;padding:18px 12px}
+.rail-top{display:flex;flex-direction:column;align-items:center;gap:14px;width:100%}
+.rail.open .rail-top{align-items:stretch}
+.avatar-btn{border:none;background:transparent;display:flex;align-items:center;justify-content:center;gap:12px;border-radius:18px;padding:4px;color:var(--ink);position:relative}
+.av{width:52px;height:52px;border-radius:50%;background:linear-gradient(135deg,#6E5CF5,#B39DFF);color:#fff;font-weight:700;font-size:15px;display:grid;place-items:center;flex:none;box-shadow:0 0 0 4px #fff,0 0 0 5px var(--line)}
+.avatar-btn[aria-selected="true"] .av{box-shadow:0 0 0 4px #fff,0 0 0 6px var(--accent)}
+.rail-btn{width:52px;height:52px;border-radius:18px;border:none;background:transparent;display:grid;place-items:center;color:var(--muted);position:relative;flex:none}
+.rail-btn svg{width:22px;height:22px;stroke:currentColor;fill:none;stroke-width:1.8;stroke-linecap:round;stroke-linejoin:round;flex:none}
+.rail-btn[aria-selected="true"]{background:var(--card);color:var(--accent);box-shadow:0 0 0 1px var(--line),0 4px 12px rgba(30,27,58,.08)}
+.rail-btn[aria-selected="true"]::before{content:"";position:absolute;left:-18px;top:14px;bottom:14px;width:4px;border-radius:0 4px 4px 0;background:var(--accent)}
+.rail.open .rail-btn{width:100%;display:flex;align-items:center;justify-content:flex-start;gap:12px;padding:0 14px}
+.rail.open .avatar-btn{width:100%;justify-content:flex-start;padding:6px 8px}
+.rail.open .rail-btn[aria-selected="true"]::before{left:-12px}
+.rail.open #railToggle svg{transform:rotate(180deg)}
+.rl{display:none;font-weight:600;font-size:14px;white-space:nowrap}
+.rail.open .rl{display:inline}
+.rail:not(.open) .rail-btn:hover::after,.rail:not(.open) .avatar-btn:hover::after{content:attr(data-label);position:absolute;left:calc(100% + 12px);top:50%;transform:translateY(-50%);background:var(--ink);color:#fff;font-size:13px;font-weight:500;padding:7px 12px;border-radius:10px;white-space:nowrap;pointer-events:none;z-index:20}
+.topbar{display:flex;align-items:center;justify-content:space-between;gap:16px;flex-wrap:wrap;padding-top:8px}
+.crumb{display:flex;align-items:center;gap:10px;font-size:15px;color:var(--muted);background:var(--card);border-radius:999px;padding:10px 18px}
+.crumb b{color:var(--ink);font-weight:600;background:var(--bg);border-radius:999px;padding:4px 12px}
+.counter{font-weight:600;background:var(--card);border-radius:999px;padding:10px 16px;font-size:14px;font-variant-numeric:tabular-nums}
+.counter.full{background:var(--red-soft);color:#A32A2E}
+h1{font-size:clamp(28px,3.4vw,40px);font-weight:600;letter-spacing:-.02em;margin:22px 0 4px;text-wrap:balance}
+.lede{color:var(--muted);margin:0 0 20px}
+.hidden{display:none !important}
+.stack{display:grid;gap:20px;align-content:start}
+.dash{display:grid;grid-template-columns:minmax(0,1fr) 360px;gap:20px;align-items:start}
+.sticky{position:sticky;top:16px}
+@media(max-width:1080px){.dash{grid-template-columns:1fr}.sticky{position:static}}
+@media(max-width:820px){.app{grid-template-columns:1fr !important}.rail{flex-direction:row;height:auto;position:static;border-radius:24px;padding:12px;justify-content:center}.rail-top{flex-direction:row;justify-content:center}.rl{display:none !important}#railToggle{display:none}.rail-btn[aria-selected="true"]::before{display:none}.rail:not(.open) .rail-btn:hover::after,.rail:not(.open) .avatar-btn:hover::after{display:none}}
+.grid2{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1fr);gap:20px;align-items:start}
+.grid3{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:20px;align-items:start}
+.g2{display:grid;grid-template-columns:1fr 1fr;gap:14px}
+.g3{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:14px}
+.g4{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:14px}
+.g5{display:grid;grid-template-columns:repeat(5,minmax(0,1fr));gap:14px}
+.tiles3{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:14px}
+@media(max-width:1080px){.grid3{grid-template-columns:1fr}}
+@media(max-width:820px){.grid2,.profile-grid{grid-template-columns:1fr}.g3,.g4{grid-template-columns:1fr 1fr}.g5{grid-template-columns:1fr 1fr 1fr}.tiles3{grid-template-columns:1fr 1fr 1fr}}
+@media(max-width:560px){.g2,.g3,.g4,.g5{grid-template-columns:1fr}.tiles3{grid-template-columns:1fr}}
+.card{background:var(--card);border-radius:var(--radius);padding:24px;box-shadow:0 1px 2px rgba(30,27,58,.03)}
+.card.sub{border-radius:20px;padding:0;border:1px solid var(--line);box-shadow:none;overflow:hidden}
+.card.dark{background:var(--ink);color:#fff}
+.card.dark .muted,.card.dark .label{color:#A9AED0}
+.hero{background:linear-gradient(120deg,#7C6CF7 0%,#B9A8FF 60%,#E3DCFF 100%);padding:22px;color:#fff;display:grid;gap:8px;justify-items:start}
+.hero .big-pair{font-size:30px;font-weight:600;letter-spacing:-.02em;margin:8px 0 2px}
+.label{font-size:13px;color:var(--muted);font-weight:500;margin:0}
+.msg{font-size:13px;color:var(--muted);margin:0}
+.banner{font-size:14px;background:var(--card);border-radius:18px;padding:12px 16px;margin:0 0 16px;box-shadow:0 1px 2px rgba(30,27,58,.03)}
+.banner:empty{display:none}
+.banner.alert{background:var(--red-soft);color:#A32A2E;font-weight:600}
+.stages{display:flex;gap:6px;flex-wrap:wrap;margin:0 0 20px;background:var(--card);border-radius:999px;padding:6px;width:fit-content;max-width:100%}
+.stages button{border:none;background:transparent;border-radius:999px;padding:10px 18px;font-weight:500;color:var(--muted);display:flex;gap:10px;align-items:center}
+.stages button[aria-selected="true"]{background:var(--ink);color:#fff}
+.stages .stat{font-size:12px;opacity:.75;font-variant-numeric:tabular-nums}
+.step{display:grid;gap:14px;padding:20px 0;border-top:1px solid var(--line)}
+.step:first-child{border-top:none;padding-top:0}
+.step-head{display:flex;align-items:center;gap:12px}
+.num{width:30px;height:30px;border-radius:50%;background:var(--accent-soft);color:var(--accent);display:grid;place-items:center;font-size:13px;font-weight:700;flex:none}
+.step-title{font-weight:600;flex:1;font-size:16px}
+.chip{font-size:12px;font-weight:600;border-radius:999px;padding:5px 11px;background:var(--bg);color:var(--muted);white-space:nowrap;display:inline-block}
+.chip.ok{background:var(--green-soft);color:#11704B}
+.chip.stop{background:var(--red-soft);color:#A32A2E}
+.chip.acc{background:var(--accent-soft);color:var(--accent)}
+.seg{display:flex;flex-wrap:wrap;gap:8px}
+.seg button{border:1px solid var(--line);background:var(--card);border-radius:999px;padding:9px 16px;font-size:14px;font-weight:500;color:var(--ink)}
+.seg button[aria-pressed="true"]{background:var(--accent-soft);border-color:var(--accent);color:var(--accent)}
+.seg.compact button{padding:7px 12px;font-size:13px}
+.check{display:flex;gap:10px;align-items:flex-start;font-size:14px;cursor:pointer}
+.check input{margin-top:3px;width:18px;height:18px;accent-color:var(--accent)}
+.field{display:grid;gap:8px}
+.inline{padding:12px 14px;border-radius:14px;border:1px solid var(--line);background:var(--bg);width:100%}
+.inline:focus{background:#fff}
+textarea.inline{resize:vertical;min-height:60px}
+.inline.sm{width:110px;padding:8px 10px}
+.setup-body{display:grid;gap:22px;margin-top:20px}
+.qblock{display:grid;gap:10px;padding:18px 0;border-top:1px solid var(--line)}
+.qhead{display:flex;justify-content:space-between;gap:10px;align-items:flex-start}
+.qtext{font-weight:600;font-size:14px}
+.btns{display:flex;gap:10px;flex-wrap:wrap;margin-top:6px;align-items:center}
+.btn{border:none;border-radius:999px;padding:13px 20px;font-weight:600;background:var(--ink);color:#fff}
+.btn.light{background:var(--card);color:var(--ink);border:1px solid var(--line)}
+.btn.green{background:var(--accent);color:#fff}
+.btn.sm{padding:8px 14px;font-size:13px}
+.btn.danger{background:var(--red-soft);color:#A32A2E;border:none}
+.btn:disabled{opacity:.4;cursor:not-allowed}
+.verdict-title{font-size:26px;font-weight:600;letter-spacing:-.02em;margin:8px 0 6px;text-wrap:balance}
+.tile{background:var(--card);border-radius:22px;padding:20px;box-shadow:0 1px 2px rgba(30,27,58,.03)}
+.tile .big{font-size:36px;font-weight:600;letter-spacing:-.02em;font-variant-numeric:tabular-nums;line-height:1.1}
+.tile .big small{font-size:14px;color:var(--muted);font-weight:500}
+.tiles{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:14px}
+@media(max-width:560px){.tiles{grid-template-columns:repeat(2,minmax(0,1fr))}}
+.list{display:grid;gap:6px}
+.row{display:grid;grid-template-columns:auto 1fr auto;gap:12px;align-items:center;padding:12px 14px;border-radius:18px;border:none;background:var(--bg);width:100%;text-align:left}
+.row:hover,.row[aria-current="true"]{background:var(--accent-soft)}
+.dot{width:10px;height:10px;border-radius:50%;flex:none}
+.val{font-weight:600;font-variant-numeric:tabular-nums}
+.pos{color:#11704B}.neg{color:#A32A2E}
+.drawer{border-radius:var(--radius);padding:24px;color:#fff;background:linear-gradient(165deg,#E8738A 0%,#7A62D6 48%,#2FB8A4 100%);display:grid;gap:16px;align-content:start}
+.drawer .muted{color:rgba(255,255,255,.8)}
+.drawer .big{font-size:52px;font-weight:600;letter-spacing:-.02em;font-variant-numeric:tabular-nums;line-height:1}
+.drawer .btn{background:rgba(30,27,58,.9)}
+.drawer .btn.light{background:rgba(255,255,255,.92);color:var(--ink);border:none}
+.drawer input{padding:11px 12px;border-radius:14px;border:none;width:100%;background:rgba(255,255,255,.92);color:var(--ink)}
+.kv{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:12px}
+.kv div{background:rgba(255,255,255,.16);border-radius:16px;padding:10px 12px}
+.kv span{display:block;font-size:12px;opacity:.85}
+.kv b{font-size:16px;font-variant-numeric:tabular-nums}
+.bars{display:grid;gap:14px}
+.bar-row{display:grid;grid-template-columns:110px 1fr 170px;gap:12px;align-items:center;font-size:14px}
+.bar{height:10px;background:var(--bg);border-radius:999px;overflow:hidden}
+.bar>i{display:block;height:100%;border-radius:999px;background:var(--accent)}
+.bar>i.neg{background:var(--red)}
+.filters{display:flex;gap:8px;flex-wrap:wrap;margin-bottom:14px}
+.filters button{border:1px solid var(--line);background:var(--card);border-radius:999px;padding:8px 14px;font-size:14px}
+.filters button[aria-pressed="true"]{background:var(--ink);color:#fff;border-color:var(--ink)}
+.summary div{display:flex;justify-content:space-between;gap:12px;padding:10px 0;border-top:1px solid var(--line);font-size:14px}
+.summary div:first-child{border-top:none}
+.table{width:100%;border-collapse:collapse;font-size:14px}
+.table td,.table th{padding:10px 8px;border-top:1px solid var(--line);text-align:left;vertical-align:top}
+.table th{font-size:12px;color:var(--muted);font-weight:500}
+.crit{display:grid;gap:10px;padding:14px 0;border-top:1px solid var(--line)}
+.planrow{display:flex;justify-content:space-between;align-items:center;gap:12px;padding:14px 0;border-top:1px solid var(--line);flex-wrap:wrap}
+.gauge{position:relative;display:grid;justify-items:center}
+.gauge svg{width:100%;max-width:240px;overflow:visible}
+.gauge .gtrack{fill:none;stroke:var(--bg);stroke-width:16;stroke-linecap:round}
+.gauge .gfill{fill:none;stroke:var(--accent);stroke-width:16;stroke-linecap:round;transition:stroke-dasharray .3s}
+.gauge .gval{position:absolute;bottom:14px;font-size:44px;font-weight:600;letter-spacing:-.02em;font-variant-numeric:tabular-nums}
+.profile-grid{display:grid;grid-template-columns:230px minmax(0,1fr);gap:20px;align-items:start}
+.side{display:grid;gap:6px;padding:12px;position:sticky;top:16px}
+.side button{border:none;background:transparent;text-align:left;padding:11px 14px;border-radius:14px;font-weight:500;color:var(--muted)}
+.side button[aria-current="true"]{background:var(--accent-soft);color:var(--accent);font-weight:600}
+.profile-head{display:flex;align-items:center;gap:16px}
+.profile-head .av{width:64px;height:64px;font-size:20px;box-shadow:none}
+.acct-head{width:100%;border:none;background:var(--card);display:grid;grid-template-columns:minmax(0,1.4fr) minmax(0,1fr) minmax(0,.8fr) minmax(0,.8fr) auto;gap:16px;align-items:center;padding:18px 20px;text-align:left}
+.acct-head:hover{background:#FAFBFF}
+.acct-head .k{font-size:12px;color:var(--muted);font-weight:500}
+.acct-head .v{font-weight:600;font-variant-numeric:tabular-nums}
+.chev{width:30px;height:30px;border-radius:50%;background:var(--bg);display:grid;place-items:center;transition:transform .2s}
+.chev svg{width:16px;height:16px;stroke:var(--ink);fill:none;stroke-width:2;stroke-linecap:round;stroke-linejoin:round}
+.acct-head[aria-expanded="true"] .chev{transform:rotate(180deg)}
+.acct-body{padding:4px 20px 22px;display:grid;gap:20px;border-top:1px solid var(--line)}
+.sect-label{font-size:13px;font-weight:600;color:var(--ink);margin:0}
+.ob-grid{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:14px}
+@media(max-width:820px){.ob-grid{grid-template-columns:1fr}}
+.ob{background:var(--bg);border-radius:18px;padding:16px;display:grid;gap:10px}
+.ob-top{display:flex;justify-content:space-between;gap:8px;font-size:13px;font-weight:600}
+.mini{background:var(--bg);border-radius:16px;padding:14px 16px;display:grid;gap:4px}
+.mini .k{font-size:12px;color:var(--muted)}
+.mini .v{font-size:18px;font-weight:600;font-variant-numeric:tabular-nums}
+.acct-head-top{display:flex;justify-content:space-between;align-items:center;gap:12px;flex-wrap:wrap}
+.section-head{display:flex;gap:8px;flex-wrap:wrap;align-items:center}
+.wk-tile{background:var(--bg);border-radius:18px;padding:14px;display:grid;gap:4px}
+.wk-tile.on{background:var(--accent-soft);box-shadow:inset 0 0 0 1.5px var(--accent)}
+.wk-tile .k{font-size:12px;color:var(--muted)}
+.wk-tile .v{font-size:20px;font-weight:600;font-variant-numeric:tabular-nums}
+.wk-row{display:grid;grid-template-columns:minmax(0,1fr) auto auto;gap:16px;align-items:center;padding:14px 0;border-top:1px solid var(--line)}
+.wk-row:first-child{border-top:none;padding-top:4px}
+.calc{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:12px}
+@media(max-width:820px){.calc{grid-template-columns:1fr 1fr}}
+.calc .mini .v{font-size:22px}
+.summary-bar{display:flex;justify-content:space-between;gap:10px;flex-wrap:wrap;background:var(--bg);border-radius:16px;padding:12px 16px;font-size:13px;font-weight:600;margin-top:14px}
+.acc{display:grid;gap:4px;padding:12px 0;border-top:1px solid var(--line)}
+.acc-top{display:flex;justify-content:space-between;align-items:center;gap:10px}
+.ans{display:grid;grid-template-columns:minmax(0,.9fr) minmax(0,1.1fr);gap:16px;padding:11px 0;border-top:1px solid var(--line);font-size:14px;align-items:start}
+.ans>span:last-child{white-space:pre-wrap;font-weight:500}
+details summary{cursor:pointer;font-weight:600;font-size:15px;color:var(--ink);padding:4px 0 10px;list-style:none}
+details summary::-webkit-details-marker{display:none}
+details summary::after{content:"＋";float:right;color:var(--muted);font-weight:500}
+details[open] summary::after{content:"−"}
+.filter-grid{display:grid;grid-template-columns:repeat(5,minmax(0,1fr));gap:14px;align-items:start;margin:18px 0 6px}
+@media(max-width:1080px){.filter-grid{grid-template-columns:repeat(2,minmax(0,1fr))}}
+.legend-item{display:grid;grid-template-columns:auto minmax(0,1fr) auto;gap:14px;align-items:center;padding:12px 0;border-top:1px solid var(--line)}
+.stat-line{display:flex;justify-content:space-between;gap:12px;flex-wrap:wrap;margin-top:12px;font-size:14px}
+.stages button{display:inline-flex;align-items:center;gap:10px;line-height:1.2}
+.stages .stat{line-height:1}
+select.inline{appearance:none;-webkit-appearance:none;padding-right:44px;background-color:var(--bg);background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='8' viewBox='0 0 12 8'%3E%3Cpath d='M1 1l5 5 5-5' fill='none' stroke='%231E1B3A' stroke-width='1.8' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E");background-repeat:no-repeat;background-position:right 18px center}
+input.inline[type=date]{padding-right:44px}
+.chip.acc{padding:7px 14px;line-height:1.2}
+.row .chip{justify-self:end}
+.chev{align-self:center}
+.qtop{display:flex;align-items:center;gap:12px}
+.qhandle{cursor:grab;color:var(--muted);font-size:20px;line-height:1;padding:4px 6px;user-select:none}
+.optrow{display:flex;flex-wrap:wrap;gap:10px}
+.qcard.drop-over{box-shadow:inset 0 0 0 2px var(--accent)}
+.cond{display:grid;grid-template-columns:64px minmax(0,1fr) auto minmax(0,1.2fr) auto;gap:10px;align-items:center;margin-bottom:10px}
+.cond .msg{text-align:center}
+</style>
+</head>
+<body>
+<div class="app" id="app">
+  <aside class="rail" id="rail" aria-label="Main">
+    <div class="rail-top">
+      <button class="avatar-btn" data-tab="profile" aria-selected="false" data-label="Profile" aria-label="Profile">
+        <span class="av" id="avatarInit">ME</span><span class="rl" id="avatarName">Profile</span>
+      </button>
+      <button class="rail-btn" id="railToggle" data-label="Expand sidebar" aria-label="Expand sidebar">
+        <svg viewBox="0 0 24 24"><path d="M9 6l6 6-6 6"/></svg><span class="rl">Collapse</span>
+      </button>
+      <button class="rail-btn" data-tab="check" aria-selected="true" data-label="Checklist" aria-label="Checklist">
+        <svg viewBox="0 0 24 24"><rect x="4" y="4" width="16" height="16" rx="4"/><path d="M8 12l3 3 5-6"/></svg><span class="rl">Checklist</span>
+      </button>
+      <button class="rail-btn" data-tab="log" aria-selected="false" data-label="Decision log" aria-label="Decision log">
+        <svg viewBox="0 0 24 24"><path d="M5 6h14M5 12h14M5 18h9"/></svg><span class="rl">Decision log</span>
+      </button>
+      <button class="rail-btn" data-tab="stats" aria-selected="false" data-label="Statistics" aria-label="Statistics">
+        <svg viewBox="0 0 24 24"><path d="M5 19V11M12 19V5M19 19v-8"/></svg><span class="rl">Statistics</span>
+      </button>
+    </div>
+  </aside>
+
+  <main>
+    <header class="topbar">
+      <div class="crumb"><span>Trade Gate</span><span>›</span><b id="crumbCur">Checklist</b></div>
+      <span class="counter" id="counter"></span>
+    </header>
+
+    <p class="banner" id="newsBanner" style="margin-top:16px"></p>
+
+    <section id="view-check">
+      <h1>Trade checklist</h1>
+      <p class="lede">Pre-trade confirms the pair and the setup, During tracks the trade, and Post reviews it.</p>
+      <div class="tiles3" id="topTiles" style="margin-bottom:20px"></div>
+      <div class="stages" id="stages"></div>
+      <p class="banner" id="banner"></p>
+      <div class="dash">
+        <div class="stack">
+          <div id="stage-pre" class="stack">
+            <div class="card" id="vetting"></div>
+            <div class="card" id="setup"></div>
+            <div class="card" id="sizing"></div>
+          </div>
+          <div id="stage-during" class="stack hidden">
+            <div class="card" id="duringForm"></div>
+            <div class="card" id="checkins"></div>
+          </div>
+          <div id="stage-post" class="stack hidden">
+            <div class="card" id="postForm"></div>
+            <div class="card" id="reviewSummary"></div>
+          </div>
+        </div>
+        <aside class="stack sticky">
+          <div class="card" id="gauge"></div>
+          <div class="card" id="weekPanel"></div>
+          <div class="card" id="active" style="padding:0;overflow:hidden"></div>
+          <div class="card" id="openList"></div>
+          <div class="card dark" id="verdict"></div>
+        </aside>
+      </div>
+    </section>
+
+    <section id="view-log" class="hidden">
+      <h1>Decision log</h1>
+      <p class="lede">Every decision, including skips. Select an entry to see its full record and to record its result.</p>
+      <div class="grid2">
+        <div class="card"><div class="filters" id="filters"></div><div class="list" id="list"></div></div>
+        <div class="stack" id="drawer"></div>
+      </div>
+    </section>
+
+    <section id="view-stats" class="hidden">
+      <h1>Statistics</h1>
+      <p class="lede">Built from logged decisions and recorded results. R is measured in units of risk.</p>
+      <div class="stack">
+        <div class="tiles" id="tiles"></div>
+        <div class="card"><p class="label" style="margin:0 0 4px">Cumulative R, closed trades</p><div id="equity"></div></div>
+        <div class="card">
+          <div class="acct-head-top"><p class="label" style="font-size:15px;color:var(--ink);font-weight:600">Long vs short</p><span class="msg" id="lsMeta"></span></div>
+          <div class="grid3" id="ls" style="margin-top:16px"></div>
+        </div>
+        <div class="card" id="balanceCard"></div>
+        <div class="grid2">
+          <div class="card"><p class="label" style="margin:0 0 14px">By grade</p><div class="bars" id="grades"></div></div>
+          <div class="card"><p class="label" style="margin:0 0 14px">By pair</p><div class="bars" id="pairs"></div></div>
+          <div class="card"><p class="label" style="margin:0 0 14px">News in the setup</p><div class="list" id="news"></div></div>
+          <div class="card"><p class="label" style="margin:0 0 14px">Skip reasons</p><div class="list" id="reasons"></div></div>
+        </div>
+      </div>
+    </section>
+
+    <section id="view-profile" class="hidden">
+      <h1>Profile</h1>
+      <p class="lede">Accounts, the week plan, the checklist, grading, rules and news. Changes save automatically.</p>
+      <div id="profile"></div>
+    </section>
+  </main>
+</div>
+
+<script>
+const KL = 'trade-gate-v1', KS = 'trade-gate-settings-v1';
+const DAYS = ['Mon','Tue','Wed','Thu','Fri','Sat','Sun'];
+const WEEKS = [1,2,3,4,5];
+const PIP = 0.0001;
+const STD_LOT = 100000;
+const PIP_VALUE_PER_LOT = STD_LOT * PIP;
+const CALC_PAIRS = ['EURUSD','GBPUSD'];
+const ACCT_TYPES = ['1-step','2-step','Funded','Instant funded'];
+const PALETTE = ['#4B3BF0','#1FA971','#E5484D','#F5A623','#2AA8D8','#B452CD','#8B7BFF','#E8738A'];
+const MOODS = [['calm','Calm'],['anxious','Anxious'],['excited','Excited'],['bored','Bored'],['frustrated','Frustrated'],['tired','Tired']];
+const MISTAKES = [['htf','No HTF bias clear'],['early','Early entry'],['moved','Moved SL'],['oversize','Oversize'],['outside','Entered outside session'],['chase','Chase'],['revenge','Revenge'],['none','None']];
+const FIELD_DEF = {
+  htfSame:{label:'HTF bias same and clear', opts:[['same','Same and clear'],['diff','Different or unclear']]},
+  liq:{label:'Liquidity taken', opts:[['yes','Yes'],['no','No']]},
+  fvgob:{label:'Entry in FVG or OB', opts:[['yes','Yes'],['no','No']]},
+  mss:{label:'Market structure shift', opts:[['yes','Yes'],['no','No']]},
+  fib:{label:'Entry inside 0.5 fib range', opts:[['yes','Yes'],['no','No']]},
+  kz:{label:'Killzone', opts:[['in','Inside killzone'],['out','Outside killzone']]},
+  newsCur:{label:'News in current session', opts:[['none','None'],['high','High-impact news']]},
+  newsNext:{label:'News in next session', opts:[['none','None'],['high','High-impact news']]},
+  cisd:{label:'Change in state of character', opts:[['disp','With displacement'],['nodisp','Without displacement'],['none','None']]}
+};
+const PREREQ = ['biasD','biasH','ttype','liq','fvgob','mss','fib','kz','newsCur','newsNext','cisd'];
+// Built-in checklist questions. Their answer options are fixed because grading depends on them; only labels are editable.
+const BUILT = ['biasD','biasH','ttype','draw','breaks','pois','liq','fvgob','mss','kz','newsCur','newsNext','fib','cisd'];
+const DEFAULT_LABELS = {
+  biasD:'Bias on Daily', biasH:'Bias on 4H', ttype:'Trade type', draw:'Draw on liquidity (potential TP)',
+  breaks:'Price broke', pois:'Price dipped inside a POI', liq:'Liquidity taken', fvgob:'Entry in FVG or OB',
+  mss:'Market structure shift', kz:'Killzone', newsCur:'News in current session', newsNext:'News in next session',
+  fib:'Entry inside 0.5 fib range (already, at entry)', cisd:'Change in state of character'
+};
+const OPT_TXT = {
+  biasD:[['bull','Bullish'],['bear','Bearish'],['side','Sideways (not sure)']],
+  biasH:[['bull','Bullish'],['bear','Bearish'],['side','Sideways (not sure)']],
+  ttype:[['bull','Bullish'],['bear','Bearish']],
+  breaks:[['h4','4H High/Low'],['dh','Daily High/Low'],['pw','Prev Week High/Low'],['none','None']],
+  pois:[['f4','4H FVG'],['fd','Daily FVG'],['fw','Weekly FVG'],['none','None']],
+  liq:[['yes','Yes'],['no','No']], fvgob:[['yes','Yes'],['no','No']], mss:[['yes','Yes'],['no','No']], fib:[['yes','Yes'],['no','No']],
+  kz:[['in','Inside killzone'],['out','Outside killzone']],
+  newsCur:[['none','None'],['high','High-impact news']], newsNext:[['none','None'],['high','High-impact news']],
+  cisd:[['disp','With displacement'],['nodisp','Without displacement'],['none','None']]
+};
+const POST_LABELS = {
+  r:'Result (R)', moved:'Moved SL', movedWhy:'Why moved SL', earlyEntry:'Entered early', earlyEntryWhy:'Why early entry',
+  earlyExit:'Exited early', earlyExitWhy:'Why early exit', partials:'Took partials', partialsHow:'Partials taken',
+  followed:'Followed the plan', mistakes:'Mistakes', slPotential:'Potential move before SL', nearMiss:'Reversed near TP',
+  nearPipsVal:'Pips short of TP', well:'What went well', wrong:'What went wrong', improve:'What to improve', lesson:'Lesson',
+  moreAccounts:'More accounts than suggested', moreAccountsWhich:'Which accounts'
+};
+const PSECS = [['profile','Profile'],['accounts','Propfirm accounts'],['plan','Week plan'],['checklist','Checklist builder'],['risk','Risk rules'],['grading','Grading criteria'],['rules','Trade rules'],['news','News'],['global','Global settings']];
+const defaultWeek = () => Math.min(5, Math.ceil(new Date().getDate() / 7));
+const DEF_SET = () => ({
+  profile:{name:'',email:''},
+  accounts:[{id:'a1',firm:'Example Prop',number:'ACC-001',label:'2-step 100K',type:'2-step',state:'Evaluation',size:100000,balance:100000,commission:4,newsAllowed:false,maxDailyLoss:5,maxDD:10,target:10,share:100,risk:1,week:1,days:DAYS.slice(),rules:'Sample account. Replace with your real details.'}],
+  grading:{
+    A:[
+      {id:'A1',label:'HTF bias clear and Daily and 4H the same',field:'htfSame',pass:['same']},
+      {id:'A2',label:'Liquidity taken',field:'liq',pass:['yes']},
+      {id:'A3',label:'Entry in FVG or OB',field:'fvgob',pass:['yes']},
+      {id:'A4',label:'Market structure shift',field:'mss',pass:['yes']},
+      {id:'A5',label:'Inside killzone',field:'kz',pass:['in']},
+      {id:'A6',label:'No news in current session',field:'newsCur',pass:['none']},
+      {id:'A7',label:'No news in next session',field:'newsNext',pass:['none']},
+      {id:'A8',label:'Entry inside 0.5 fib range',field:'fib',pass:['yes']},
+      {id:'A9',label:'Change in state of character with displacement',field:'cisd',pass:['disp']}
+    ],
+    B:[
+      {id:'B1',label:'HTF bias clear and Daily and 4H the same',field:'htfSame',pass:['same']},
+      {id:'B2',label:'Liquidity taken',field:'liq',pass:['yes']},
+      {id:'B3',label:'Entry in FVG or OB',field:'fvgob',pass:['yes']},
+      {id:'B4',label:'Market structure shift',field:'mss',pass:['yes']},
+      {id:'B5',label:'Outside killzone',field:'kz',pass:['out']},
+      {id:'B6',label:'News in current session (type recorded)',field:'newsCur',pass:['none','high']},
+      {id:'B7',label:'News in next session (type recorded)',field:'newsNext',pass:['none','high']},
+      {id:'B8',label:'Entry inside 0.5 fib range',field:'fib',pass:['yes']},
+      {id:'B9',label:'Change in state of character without displacement',field:'cisd',pass:['nodisp']}
+    ]
+  },
+  custom:[],
+  qLabels:{},
+  riskRules:[
+    {id:'r1', name:'A+ on evaluation and challenge', when:[{field:'grade', value:'A'}, {join:'and', field:'stage', value:'eval'}], min:2.4, max:2.4},
+    {id:'r2', name:'A+ on funded and instant funded', when:[{field:'grade', value:'A'}, {join:'and', field:'stage', value:'funded'}], min:0.5, max:0.75},
+    {id:'r3', name:'B on evaluation and challenge', when:[{field:'grade', value:'B'}, {join:'and', field:'stage', value:'eval'}], min:1, max:1},
+    {id:'r4', name:'B on funded and instant funded', when:[{field:'grade', value:'B'}, {join:'and', field:'stage', value:'funded'}], min:0.35, max:0.5}
+  ],
+  rules:["Don't get out early. Price has hit TP after I exited early before.","SL at a valid swing invalidation area.","Always trust my setup.","Have patience."],
+  newsList:['Non-Farm Payrolls','US CPI','FOMC rate decision','Fed Chair press conference','ECB rate decision','ECB press conference','BoE rate decision','UK CPI','Eurozone CPI','US GDP','US Retail Sales','ISM Manufacturing PMI','Initial Jobless Claims','Core PCE'],
+  newsCal:[],
+  activeWeek:defaultWeek(),
+  maxTrades:2, minRR:1.25, nearPips:3
+});
+
+function loadSet(){
+  try {
+    const v = localStorage.getItem(KS);
+    if (v) {
+      const s = Object.assign(DEF_SET(), JSON.parse(v));
+      s.accounts = (s.accounts || []).map(a => Object.assign({days:DAYS.slice(), share:100, risk:1, week:0}, a));
+      // Older yes/no items become single-choice questions with yes/no options.
+      s.custom = (s.custom || []).map(c => Object.assign({type:'radio', options:['yes','no'], req:true}, c));
+      s.qLabels = s.qLabels || {};
+      s.optLabels = s.optLabels || {};
+      s.qOrder = s.qOrder || [];
+      if (!WEEKS.includes(s.activeWeek)) s.activeWeek = defaultWeek();
+      return s;
+    }
+  } catch(e) {}
+  return DEF_SET();
+}
+function sampleLog(){
+  return [
+    {id:'s1',ts:'2026-11-10T14:20:00',pair:'EURUSD',dir:'bull',action:'trade',entry:1.0820,sl:1.0795,tp:1.0870,rr:2,R:2,result:'win',sample:true,post:{ts:'2026-11-10T16:00:00',a:{r:2,followed:'yes',mistakes:['none']}}},
+    {id:'s2',ts:'2026-11-11T09:05:00',pair:'GBPUSD',dir:'bear',action:'skip',reason:'Small moves: wait for volume and a breakout',R:null,result:null,sample:true},
+    {id:'s3',ts:'2026-11-12T15:40:00',pair:'GBPUSD',dir:'bear',action:'trade',entry:1.2640,sl:1.2665,tp:1.2600,rr:1.6,R:-1,result:'loss',sample:true,post:{ts:'2026-11-12T18:00:00',a:{r:-1,followed:'partial',mistakes:['moved']}}},
+    {id:'s4',ts:'2026-11-13T11:15:00',pair:'EURUSD',dir:'bear',action:'trade',entry:1.0805,sl:1.0830,tp:1.0760,rr:1.8,R:0,result:'be',sample:true},
+    {id:'s5',ts:'2026-11-14T16:30:00',pair:'EURUSD',dir:'bull',action:'trade',entry:1.0790,sl:1.0765,tp:1.0830,rr:1.6,R:-1,result:'loss',sample:true,post:{ts:'2026-11-14T19:00:00',a:{r:-1,followed:'yes',mistakes:['none']}}},
+    {id:'s6',ts:'2026-11-17T10:00:00',pair:'GBPUSD',dir:'bull',action:'skip',reason:'Neither pair stronger than USD',R:null,result:null,sample:true}
+  ];
+}
+function loadLog(){ try { const v = localStorage.getItem(KL); if (v) return JSON.parse(v); } catch(e) {} return sampleLog(); }
+function saveAll(){ try { localStorage.setItem(KS, JSON.stringify(SET)); localStorage.setItem(KL, JSON.stringify(LOG)); } catch(e) {} }
+
+let SET = loadSet();
+let LOG = loadLog();
+let S = { tab:'check', psec:'profile', stage:'pre', bias:'clear', smallOK:false, dir:null, dxy:null, str:{eur:null,gbp:null}, cmp:null, eurgbp:null,
+  pairPick:null, calcPair:'EURUSD', plan:{entry:'',sl:'',tp:''}, pre:{}, tid:null, ptid:null, filter:'all', sel:null, msg:'',
+  dr:{during:{}, post:{}}, alarm:false, notified:{}, railOpen:false, accOpen:{},
+  stat:{size:'all', stage:'all', week:'all', from:'', to:'', total:true} };
+
+const has = v => v !== undefined && v !== null && v !== '' && !(typeof v === 'number' && isNaN(v)) && !(Array.isArray(v) && !v.length);
+const esc = s => String(s == null ? '' : s).replace(/[&<>"]/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
+const cap = s => { const t = String(s == null ? '' : s); return t.charAt(0).toUpperCase() + t.slice(1); };
+const fmtR = v => v == null ? '—' : (v > 0 ? '+' : '') + v.toFixed(2) + 'R';
+const fmtPct = v => v == null ? '—' : Math.round(v * 100) + '%';
+const money = v => (v < 0 ? '-' : '') + '$' + Math.abs(v || 0).toLocaleString('en-US', {minimumFractionDigits:2, maximumFractionDigits:2});
+const safeDiv = (a, b) => b > 0 ? a / b : 0;
+const sum = a => a.reduce((s,x) => s + x, 0);
+const pairName = d => d === 'bull' ? 'long' : 'short';
+const dayKey = () => new Date().toDateString();
+const todayDay = () => DAYS[(new Date().getDay() + 6) % 7];
+const ymd = () => new Date().toLocaleDateString('en-CA');
+const uid = () => Date.now().toString(36) + Math.random().toString(36).slice(2,7);
+const clampShare = s => Math.min(100, Math.max(1, +s || 100));
+const weekLabel = w => w ? 'Week ' + w : 'Unassigned';
+const qLabel = k => (SET.qLabels || {})[k] || DEFAULT_LABELS[k];
+function when(ts){ return new Date(ts).toLocaleString([], {month:'short', day:'numeric', hour:'2-digit', minute:'2-digit'}); }
+function todayTrades(){ return LOG.filter(x => x.action === 'trade' && new Date(x.ts).toDateString() === dayKey()).length; }
+function optsFor(field){
+  if (FIELD_DEF[field]) return FIELD_DEF[field].opts;
+  if (field.startsWith('c:')) { const c = SET.custom.find(x => 'c:' + x.id === field); return c ? (c.options || []).map(o => [o, cap(o)]) : []; }
+  return [];
+}
+function fieldLabel(field){
+  if (FIELD_DEF[field]) return FIELD_DEF[field].label;
+  if (field.startsWith('c:')) { const c = SET.custom.find(x => 'c:' + x.id === field); return c ? c.label : field; }
+  return field;
+}
+function fieldVal(f, pre){
+  if (f === 'htfSame') return (pre.biasD && pre.biasD === pre.biasH && pre.biasD !== 'side') ? 'same' : 'diff';
+  if (f.startsWith('c:')) return (pre.custom || {})[f.slice(2)];
+  return pre[f];
+}
+function optList(k){ const ov = (SET.optLabels || {})[k] || {}; return (OPT_TXT[k] || []).map(([v, l]) => [v, ov[v] || l]); }
+function optLabel(k, v){ const o = optList(k).find(x => x[0] === v); return o ? o[1] : String(v); }
+function optTxt(k, v){ return optLabel(k, v); }
+function customById(id){ return SET.custom.find(c => c.id === id); }
+function orderedKeys(){
+  const ids = [...BUILT, ...SET.custom.map(c => c.id)];
+  const kept = (SET.qOrder || []).filter(k => ids.includes(k));
+  return kept.concat(ids.filter(k => !kept.includes(k)));
+}
+let dragKey = null;
+function moodLabel(v){ return (MOODS.find(m => m[0] === v) || [0,'—'])[1]; }
+function urgeLabel(v){ return ({none:'No urge', resisted:'Resisted', acted:'Acted on it'})[v] || '—'; }
+
+// ---- account statistics (per propfirm account, from logged trades) ----
+function acctTrades(id){ return LOG.filter(x => x.action === 'trade' && (x.accountsUsed || []).some(u => u.id === id)); }
+function acctPnl(t, id){
+  const u = (t.accountsUsed || []).find(u => u.id === id);
+  return (t.R == null || !u || u.riskUsd == null) ? null : t.R * u.riskUsd;
+}
+// Closed trades for one account, in entry order, with the P&L each one made on it.
+function acctEvents(a){
+  return acctTrades(a.id).filter(t => t.result !== 'open')
+    .map(t => ({t: new Date(t.ts).getTime(), p: acctPnl(t, a.id), bal: (t.post && t.post.a && t.post.a.balances) ? t.post.a.balances[a.id] : undefined}))
+    .filter(e => e.p != null).sort((x, y) => x.t - y.t);
+}
+// Balance at a moment: the latest manually entered balance (or the starting balance) plus the P&L of trades after it.
+function balanceAt(a, ts){
+  const evs = acctEvents(a);
+  let base = +a.balance || 0, baseT = -Infinity;
+  for (const e of evs) {
+    if (e.t > ts) break;
+    if (has(e.bal) && !isNaN(+e.bal)) { base = +e.bal; baseT = e.t; }
+  }
+  return base + sum(evs.filter(e => e.t > baseT && e.t <= ts).map(e => e.p));
+}
+function acctStats(a){
+  const trades = acctTrades(a.id);
+  const closed = trades.map(t => ({t, p: acctPnl(t, a.id)})).filter(x => x.p != null && x.t.result !== 'open');
+  const pnls = closed.map(x => x.p);
+  const realized = sum(pnls);
+  const todayPnl = sum(closed.filter(x => new Date(x.t.ts).toDateString() === dayKey()).map(x => x.p));
+  const wins = pnls.filter(p => p > 0), losses = pnls.filter(p => p < 0);
+  const grossW = sum(wins), grossL = Math.abs(sum(losses));
+  return {
+    trades: trades.length, closedN: closed.length, realized, cur: balanceAt(a, Date.now()), todayPnl,
+    winRate: closed.length ? wins.length / closed.length : null,
+    avgWin: wins.length ? grossW / wins.length : 0,
+    avgLoss: losses.length ? grossL / losses.length : 0,
+    pf: grossL > 0 ? grossW / grossL : (grossW > 0 ? Infinity : null)
+  };
+}
+
+function gradeOf(pre){
+  let miss = PREREQ.filter(k => !has(pre[k])).length;
+  if (!(pre.draw && pre.draw.trim())) miss++;
+  if (!(pre.breaks || []).some(x => x !== 'none')) miss++;
+  if (!(pre.pois || []).some(x => x !== 'none')) miss++;
+  miss += SET.custom.filter(c => c.req !== false && !has((pre.custom || {})[c.id])).length;
+  const rows = {};
+  ['A','B'].forEach(g => rows[g] = SET.grading[g].map(c => {
+    const v = fieldVal(c.field, pre);
+    return { label:c.label, pass: has(v) && c.pass.includes(v), v };
+  }));
+  let grade = 'U';
+  if (miss) grade = null;
+  else if (rows.A.length && rows.A.every(x => x.pass)) grade = 'A';
+  else if (rows.B.length && rows.B.every(x => x.pass)) grade = 'B';
+  return { grade, rows, miss };
+}
+
+function vet(){
+  const r = { steps:{}, stop:null, pending:null, cands:[], allowed:[], pair:null, pref:null };
+  const fail = (k,m) => { r.steps[k] = {s:'stop', m}; if (!r.stop) r.stop = m; };
+  const ok = (k,m) => { r.steps[k] = {s:'ok', m}; };
+  const wait = (k,m) => { r.steps[k] = {s:'wait', m}; if (!r.pending) r.pending = m; };
+  const dir = S.dir;
+  if (S.bias === 'zigzag') fail('bias', 'Zigzag: no clear direction');
+  else if (S.bias === 'small' && !S.smallOK) fail('bias', 'Small moves: wait for volume and a breakout');
+  else ok('bias', S.bias === 'small' ? 'Breakout confirmed' : 'Clear direction');
+  if (!dir) { wait('dir', 'Choose bullish or bearish'); return r; }
+  ok('dir', dir === 'bull' ? 'Bullish scenario' : 'Bearish scenario');
+  if (S.dxy == null) wait('dxy', dir === 'bull' ? 'Is DXY bearish?' : 'Is DXY bullish?');
+  else if (S.dxy === 'yes') ok('dxy', 'DXY supports the trade');
+  else fail('dxy', dir === 'bull' ? 'DXY is not bearish' : 'DXY is not bullish');
+  const want = dir === 'bull' ? 'stronger' : 'weaker';
+  if (S.str.eur == null || S.str.gbp == null) wait('str', 'Set both currencies against USD');
+  else {
+    if (S.str.eur === want) r.cands.push('EURUSD');
+    if (S.str.gbp === want) r.cands.push('GBPUSD');
+    if (!r.cands.length) fail('str', 'Neither pair is ' + want + ' than USD');
+    else ok('str', r.cands.join(' and ') + ' qualifies');
+  }
+  let prio = r.cands;
+  if (r.cands.length === 2) {
+    if (!S.cmp) wait('cmp', 'Compare EUR and GBP strength');
+    else {
+      ok('cmp', S.cmp === 'equal' ? 'Almost equal: both allowed' : 'Priority set');
+      prio = S.cmp === 'equal' ? r.cands : [S.cmp === 'eur' ? 'EURUSD' : 'GBPUSD'];
+    }
+  }
+  if (S.eurgbp == null) wait('eurgbp', 'Set the EURGBP trend');
+  else {
+    r.pref = {bull:{bull:'EUR',bear:'GBP',side:'both'}, bear:{bear:'EUR',bull:'GBP',side:'both'}}[dir][S.eurgbp];
+    r.allowed = prio.filter(p => r.pref === 'both' || p.startsWith(r.pref));
+    if (!prio.length) r.steps.eurgbp = {s:'off', m:'No candidate pair'};
+    else if (!r.allowed.length) fail('eurgbp', 'EURGBP prefers ' + r.pref + ', which excludes the candidate');
+    else ok('eurgbp', r.pref === 'both' ? 'Both pairs allowed' : r.pref + ' preferred');
+  }
+  if (r.allowed.length === 1) r.pair = r.allowed[0];
+  else if (r.allowed.length > 1) r.pair = r.allowed.includes(S.pairPick) ? S.pairPick : null;
+  if (r.allowed.length > 1 && !r.pair && !r.pending) r.pending = 'Pick one pair to trade';
+  return r;
+}
+
+// Entry / SL / TP geometry, R:R and stop distance in pips. Works for EURUSD and GBPUSD.
+function planCheck(){
+  const dir = S.dir, e = +S.plan.entry, s = +S.plan.sl, t = +S.plan.tp;
+  const base = {ok:false, msg:'Enter entry, stop and target', slPips:0, rr:null};
+  if (!(e && s && t)) return base;
+  if (!dir) return {...base, msg:'Choose a scenario first'};
+  const valid = dir === 'bull' ? (s < e && e < t) : (t < e && e < s);
+  if (!valid) return {...base, msg: dir === 'bull' ? 'Long: stop below entry, target above' : 'Short: stop above entry, target below'};
+  const rr = Math.abs(t - e) / Math.abs(e - s), slPips = Math.abs(e - s) / PIP;
+  if (rr < SET.minRR) return {ok:false, msg:'R:R ' + rr.toFixed(2) + ' is below ' + SET.minRR, slPips, rr};
+  return {ok:true, msg:'R:R ' + rr.toFixed(2), slPips, rr};
+}
+
+// Accounts assigned to the active week. Lots = (capital × risk%) ÷ (stop pips × $10 per pip per lot).
+const FUNDED_TYPES = ['Funded','Instant funded'];
+const RISK_FIELDS = {
+  grade:{label:'Setup grade', opts:[['A','A+'],['B','B']]},
+  stage:{label:'Account stage', opts:[['eval','Evaluation / challenge'],['funded','Funded / instant funded']]}
+};
+// Conditions are read left to right; and / or joins each one to the result so far.
+function ruleMatches(r, ctx){
+  if (!r.when || !r.when.length) return false;
+  const hit = c => ctx[c.field] === c.value;
+  let res = hit(r.when[0]);
+  for (let i = 1; i < r.when.length; i++) { const c = r.when[i]; res = c.join === 'or' ? (res || hit(c)) : (res && hit(c)); }
+  return res;
+}
+function recommendFor(a, grade){
+  if (grade !== 'A' && grade !== 'B') return null;
+  const ctx = {grade, stage: FUNDED_TYPES.includes(a.type) ? 'funded' : 'eval'};
+  return SET.riskRules.find(r => ruleMatches(r, ctx)) || null;
+}
+function recText(x){ if (!x.rule) return '—'; return x.rule.min === x.rule.max ? x.rule.min + '%' : x.rule.min + '–' + x.rule.max + '%'; }
+
+// Accounts assigned to the active week. Lots = (capital × risk%) ÷ (stop pips × $10 per pip per lot).
+function activeAccounts(){
+  const pc = planCheck();
+  const grade = gradeOf(S.pre).grade;
+  const newsHit = S.pre.newsCur === 'high' || S.pre.newsNext === 'high';
+  const day = todayDay();
+  return SET.accounts.filter(a => a.week === SET.activeWeek).map(a => {
+    const risk = +a.risk || 0;
+    const capital = acctStats(a).cur * clampShare(a.share) / 100;
+    const riskUsd = capital * risk / 100;
+    const rule = recommendFor(a, grade);
+    let ok = true, msg = 'Ready', lots = null, comm = null;
+    if (!(a.days || []).includes(day)) { ok = false; msg = 'Not a trading day for this account'; }
+    else if (a.state === 'Breached' || a.state === 'Passed') { ok = false; msg = 'Not tradable: ' + a.state; }
+    else if (newsHit && !a.newsAllowed) { ok = false; msg = 'Skip: this account does not allow news'; }
+    else if (!(risk > 0)) { ok = false; msg = 'Set a risk % for this account'; }
+    else if (!rule) { ok = false; msg = grade ? 'No risk rule matches this account' : 'Grade the setup first'; }
+    else if (risk < rule.min - 1e-9 || risk > rule.max + 1e-9) { ok = false; msg = 'Risk ' + risk + '% is outside ' + recText({rule}) + ' recommended'; }
+    if (pc.slPips > 0) {
+      lots = Math.floor(riskUsd / (pc.slPips * PIP_VALUE_PER_LOT) * 100) / 100;
+      if (lots <= 0 && ok) { ok = false; msg = 'Lot size rounds to 0 at this risk'; }
+      comm = lots * a.commission;
+    }
+    return {acc:a, risk, capital, riskUsd, rule, ok, msg, lots, comm};
+  });
+}
+
+function readiness(){
+  const v = vet(), g = gradeOf(S.pre), pc = planCheck(), acc = activeAccounts(), n = todayTrades();
+  let block = null;
+  if (v.stop) block = v.stop;
+  else if (v.pending) block = v.pending;
+  else if (!v.pair) block = 'No pair confirmed yet';
+  else if (g.grade === null) block = 'Finish the setup checklist';
+  else if (g.grade === 'U') block = 'Setup does not meet A+ or B';
+  else if (!pc.ok) block = pc.msg;
+  else if (!acc.length) block = 'No accounts assigned to ' + weekLabel(SET.activeWeek);
+  else if (!acc.some(a => a.ok)) block = 'No account in ' + weekLabel(SET.activeWeek) + ' is tradable now';
+  else if (n >= SET.maxTrades) block = 'Daily trade limit reached';
+  return {v, g, pc, acc, n, block, ok: !block};
+}
+
+function openTrades(){ return LOG.filter(x => x.action === 'trade' && x.result === 'open'); }
+function tradesNewest(){ return LOG.filter(x => x.action === 'trade').sort((a,b) => new Date(b.ts) - new Date(a.ts)); }
+
+function resetPre(){
+  S = Object.assign(S, { bias:'clear', smallOK:false, dir:null, dxy:null, str:{eur:null,gbp:null}, cmp:null, eurgbp:null, pairPick:null, plan:{entry:'',sl:'',tp:''}, pre:{} });
+}
+
+// ---- checklist rendering ----
+function chip(st){
+  if (!st) return '';
+  if (st.s === 'ok') return '<span class="chip ok">Pass</span>';
+  if (st.s === 'stop') return '<span class="chip stop">Stop</span>';
+  if (st.s === 'off') return '<span class="chip">Not needed</span>';
+  return '<span class="chip">Pending</span>';
+}
+function seg(attrs, opts, current){
+  return '<div class="seg" role="group">' + opts.map(([v,l]) => `<button type="button" ${attrs} data-pv="${esc(v)}" aria-pressed="${current === v}">${esc(l)}</button>`).join('') + '</div>';
+}
+function multi(attrs, opts, current){
+  const arr = Array.isArray(current) ? current : [];
+  return '<div class="seg" role="group">' + opts.map(([v,l]) => `<button type="button" data-pmulti="1" ${attrs} data-pv="${esc(v)}" aria-pressed="${arr.includes(v)}">${esc(l)}</button>`).join('') + '</div>';
+}
+function step(n, key, title, body, v){
+  const st = v.steps[key];
+  return `<div class="step"><div class="step-head"><span class="num">${n}</span><span class="step-title">${title}</span>${chip(st)}</div>${body}${st ? `<p class="msg">${esc(st.m)}</p>` : ''}</div>`;
+}
+
+function renderVetting(v){
+  const cmpOpts = S.dir === 'bear'
+    ? [['eur','EUR weaker'],['gbp','GBP weaker'],['equal','Almost equal']]
+    : [['eur','EUR stronger'],['gbp','GBP stronger'],['equal','Almost equal']];
+  let h = '<p class="label" style="margin-bottom:4px">Pair vetting</p>';
+  h += step(1, 'bias', 'Bias check', seg('data-bias="1"', [['clear','Clear direction'],['small','Small moves'],['zigzag','Zigzag']], S.bias) +
+    (S.bias === 'small' ? `<label class="check"><input type="checkbox" data-smallok="1" ${S.smallOK ? 'checked' : ''}> Volume is kicking in and price has left consolidation</label>` : ''), v);
+  h += step(2, 'dir', 'Scenario', seg('data-dir="1"', [['bull','Bullish'],['bear','Bearish']], S.dir), v);
+  if (S.dir) {
+    h += step(3, 'dxy', S.dir === 'bull' ? 'DXY is bearish?' : 'DXY is bullish?', seg('data-dxy="1"', [['yes','Yes'],['no','No']], S.dxy), v);
+    h += step(4, 'str', 'Currency strength vs USD',
+      `<div class="field"><span class="label">EUR</span>${seg('data-str="eur"', [['stronger','Stronger than USD'],['weaker','Weaker than USD']], S.str.eur)}</div>
+       <div class="field"><span class="label">GBP</span>${seg('data-str="gbp"', [['stronger','Stronger than USD'],['weaker','Weaker than USD']], S.str.gbp)}</div>`, v);
+    if (v.cands.length === 2) h += step(5, 'cmp', 'EUR against GBP', seg('data-cmp="1"', cmpOpts, S.cmp), v);
+    h += step(6, 'eurgbp', 'EURGBP trend', seg('data-eurgbp="1"', [['bull','Bullish'],['bear','Bearish'],['side','Sideways']], S.eurgbp), v);
+  }
+  if (v.pair) h += `<p class="msg" style="color:var(--ink)">Pair confirmed: <b>${v.pair}</b>, ${pairName(S.dir)}.</p>`;
+  document.getElementById('vetting').innerHTML = h;
+}
+
+// One answer block for a user-defined question. Radio and multiple choice use the options; text uses an input.
+function customField(c, p){
+  const v = (p.custom || {})[c.id];
+  const lab = `<span class="label">${esc(c.label)}${c.req === false ? '' : ' <span style="color:#A32A2E">*</span>'}</span>`;
+  const opts = (c.options || []).filter(Boolean);
+  if (c.type === 'text') return `<div class="field">${lab}<input class="inline" data-ctext="${c.id}" value="${esc(v || '')}" placeholder="Type your answer"></div>`;
+  if (!opts.length) return `<div class="field">${lab}<p class="msg">No options yet. Add them in Profile → Checklist builder.</p></div>`;
+  if (c.type === 'multi') return `<div class="field">${lab}<div class="seg" role="group">${opts.map(o => `<button type="button" data-cm="${c.id}" data-pv="${esc(o)}" aria-pressed="${Array.isArray(v) && v.includes(o)}">${esc(cap(o))}</button>`).join('')}</div></div>`;
+  return `<div class="field">${lab}${seg(`data-custom="${c.id}"`, opts.map(o => [o, cap(o)]), v)}</div>`;
+}
+function gradeRows(rows){
+  return ['A','B'].map(g => `<div class="crit"><p class="label">Grade ${g === 'A' ? 'A+' : 'B'}</p>` +
+    rows[g].map(x => `<div style="display:flex;justify-content:space-between;align-items:center;gap:10px;font-size:13px"><span>${esc(x.label)}</span><span class="chip ${x.pass ? 'ok' : 'stop'}">${x.pass ? 'Pass' : 'Fail'}</span></div>`).join('') + '</div>').join('');
+}
+function newsSelect(key, current){
+  return `<div class="field"><label class="label" for="${key}">Which high-impact event?</label><select id="${key}" class="inline" data-psel="${key}"><option value="">Select event</option>${SET.newsList.map(n => `<option ${current === n ? 'selected' : ''}>${esc(n)}</option>`).join('')}</select></div>`;
+}
+
+function builtinField(k, p){
+  if (k === 'draw') return `<div class="field"><label class="label" for="drawIn">${esc(qLabel(k))}</label><input id="drawIn" class="inline" data-pt="draw" value="${esc(p.draw || '')}" placeholder="e.g. Prev Daily high 1.0870"></div>`;
+  if (k === 'breaks' || k === 'pois') return `<div class="field"><span class="label">${esc(qLabel(k))}</span>${multi(`data-pm="${k}"`, optList(k), p[k])}</div>`;
+  if (k === 'newsCur' || k === 'newsNext') return `<div class="field"><span class="label">${esc(qLabel(k))}</span>${seg(`data-pk="${k}"`, optList(k), p[k])}${p[k] === 'high' ? newsSelect(k + 'Type', p[k + 'Type']) : ''}</div>`;
+  return `<div class="field"><span class="label">${esc(qLabel(k))}</span>${seg(`data-pk="${k}"`, optList(k), p[k])}</div>`;
+}
+
+function renderSetup(rd){
+  const el = document.getElementById('setup');
+  if (!rd.v.pair) { el.innerHTML = '<div class="step-head"><span class="num">2</span><span class="step-title">Setup checklist</span></div><p class="msg" style="margin-top:12px">Unlocks once vetting confirms a pair to trade.</p>'; return; }
+  const p = S.pre, g = rd.g;
+  const body = orderedKeys().map(k => customById(k) ? customField(customById(k), p) : builtinField(k, p)).join('');
+  el.innerHTML = `<div class="step-head"><span class="num">2</span><span class="step-title">Setup checklist</span>${g.grade === null ? `<span class="chip">${g.miss} missing</span>` : `<span class="chip ${g.grade === 'U' ? 'stop' : 'ok'}">${g.grade === 'U' ? 'Ungraded' : 'Grade ' + (g.grade === 'A' ? 'A+' : 'B')}</span>`}</div>
+    <div class="setup-body">${body}</div>
+    <details style="margin-top:22px"><summary>Grading rules applied</summary>${gradeRows(g.rows)}</details>`;
+}
+
+function renderSizing(rd){
+  const el = document.getElementById('sizing');
+  if (rd.v.pair && CALC_PAIRS.includes(rd.v.pair)) S.calcPair = rd.v.pair;
+  const pc = rd.pc, rows = rd.acc;
+  const totalLots = sum(rows.filter(x => x.ok && x.lots != null).map(x => x.lots));
+  const stopTxt = pc.slPips ? pc.slPips.toFixed(1) + ' pips' : '—';
+  el.innerHTML = `<div class="step-head"><span class="num">3</span><span class="step-title">Entry, stop, target and sizing</span></div>
+    <div class="setup-body">
+      <div class="field"><span class="label">Pair</span>${seg('data-calcpair="1"', CALC_PAIRS.map(p => [p,p]), S.calcPair)}</div>
+      <div class="g2">
+        <div class="field"><label class="label" for="pEntry">Entry</label><input id="pEntry" class="inline" data-plan="entry" inputmode="decimal" value="${esc(S.plan.entry)}" placeholder="1.0820"></div>
+        <div class="field"><label class="label" for="pSl">Stop loss</label><input id="pSl" class="inline" data-plan="sl" inputmode="decimal" value="${esc(S.plan.sl)}" placeholder="1.0795"></div>
+        <div class="field"><label class="label" for="pTp">Target (TP)</label><input id="pTp" class="inline" data-plan="tp" inputmode="decimal" value="${esc(S.plan.tp)}" placeholder="1.0870"></div>
+        <div class="field"><span class="label">Scenario</span><div class="inline" style="background:var(--card)">${S.dir ? pairName(S.dir) : 'Choose a scenario in step 2'}</div></div>
+      </div>
+      <div class="calc">
+        <div class="mini"><div class="k">R:R</div><div class="v">${pc.rr != null ? pc.rr.toFixed(2) : '—'}</div></div>
+        <div class="mini"><div class="k">Stop distance</div><div class="v">${stopTxt}</div></div>
+        <div class="mini"><div class="k">Pip value per lot</div><div class="v">$${PIP_VALUE_PER_LOT.toFixed(2)}</div></div>
+        <div class="mini"><div class="k">Total lots, ready accounts</div><div class="v">${totalLots.toFixed(2)}</div></div>
+      </div>
+      <p class="msg">${esc(pc.msg)}. Lots = balance × share % × risk % ÷ (stop pips × $${PIP_VALUE_PER_LOT.toFixed(2)}). Both pairs are USD-quoted, so the pip value is the same.</p>
+    </div>
+    ${rows.length ? `<table class="table" style="margin-top:16px"><thead><tr><th>Account</th><th>Risk</th><th>Recommended</th><th>Risk $</th><th>Lots</th><th>Commission</th><th>Status</th></tr></thead><tbody>
+      ${rows.map(x => `<tr><td><b>${esc(x.acc.firm)}</b><br><span class="msg">${esc(x.acc.number)} · ${esc(x.acc.label)}</span></td>
+        <td>${x.risk}%</td><td>${recText(x)}</td><td>${money(x.riskUsd)}</td><td class="val">${x.lots == null ? '—' : x.lots.toFixed(2)}</td><td>${x.comm == null ? '—' : money(x.comm)}</td>
+        <td><span class="chip ${x.ok ? 'ok' : 'stop'}">${esc(x.msg)}</span></td></tr>`).join('')}
+    </tbody></table>` : `<p class="msg" style="margin-top:16px">No accounts in ${weekLabel(SET.activeWeek)}. Assign them in Profile → Week plan.</p>`}`;
+}
+
+function renderWeekPanel(rd){
+  const wk = SET.activeWeek;
+  const rows = rd.acc;
+  const ready = rows.filter(x => x.ok);
+  const totalRisk = sum(ready.map(x => x.risk));
+  const totalLots = sum(ready.filter(x => x.lots != null).map(x => x.lots));
+  const weekBtns = WEEKS.map(w => `<button type="button" data-activeweek="${w}" aria-pressed="${w === wk}">W${w}</button>`).join('');
+  document.getElementById('weekPanel').innerHTML = `<p class="label" style="font-size:15px;color:var(--ink);font-weight:600;margin-bottom:12px">${weekLabel(wk)} accounts</p>
+    <div class="seg compact" role="group" aria-label="Active week" style="margin-bottom:14px">${weekBtns}</div>
+    ${rows.length ? rows.map(x => `<div class="wk-row">
+        <div><div style="font-weight:600">${esc(x.acc.firm)}</div><div class="msg">${esc(x.acc.number)} · ${esc(x.acc.state)} · ${x.acc.share}% of account · Recommended ${recText(x)}</div>
+          ${x.ok ? '' : `<div class="msg" style="color:#A32A2E">${esc(x.msg)}</div>`}</div>
+        <div style="text-align:right"><div class="label">Risk</div><div class="val">${x.risk}%</div></div>
+        <div style="text-align:right"><div class="label">Lots</div><div class="val">${x.lots == null ? '—' : x.lots.toFixed(2)}</div></div>
+      </div>`).join('') : `<p class="msg">No accounts in ${weekLabel(wk)} yet. Assign them in Profile → Week plan.</p>`}
+    ${rows.length ? `<div class="summary-bar"><span>${ready.length} of ${rows.length} ready</span><span>${totalRisk.toFixed(2)}% risk · ${totalLots.toFixed(2)} lots</span></div>` : ''}`;
+}
+
+function renderTop(rd){
+  const trades = LOG.filter(x => x.action === 'trade');
+  const closed = trades.filter(x => x.R != null && x.result !== 'open');
+  const wins = closed.filter(x => x.R > 0).length;
+  const winRate = closed.length ? wins / closed.length : null;
+  const avgR = closed.length ? sum(closed.map(x => x.R)) / closed.length : null;
+  const tile = (l, v, s='') => `<div class="tile"><p class="label" style="margin-bottom:10px">${l}</p><div class="big">${v}${s ? ` <small>${s}</small>` : ''}</div></div>`;
+  document.getElementById('topTiles').innerHTML =
+    tile('Trades today', rd.n, '/ ' + SET.maxTrades) + tile('Win rate', fmtPct(winRate), closed.length ? closed.length + ' closed' : '') + tile('Average R', avgR == null ? '—' : fmtR(avgR));
+}
+
+function renderGauge(rd){
+  const reqCustom = SET.custom.filter(c => c.req !== false).length;
+  const total = PREREQ.length + 3 + reqCustom;
+  const pct = Math.max(0, Math.min(1, (total - rd.g.miss) / total));
+  const grade = rd.g.grade === 'A' ? 'A+' : rd.g.grade === 'B' ? 'B' : rd.g.grade === 'U' ? 'Ungraded' : 'In progress';
+  document.getElementById('gauge').innerHTML = `<p class="label" style="margin-bottom:8px">Setup progress</p>
+    <div class="gauge"><svg viewBox="0 0 220 130" role="img" aria-label="Setup progress ${Math.round(pct*100)} percent">
+      <path class="gtrack" d="M20,110 A90,90 0 0 1 200,110"/>
+      <path class="gfill" d="M20,110 A90,90 0 0 1 200,110" stroke-dasharray="${(282.7 * pct).toFixed(1)} 400"/></svg>
+      <div class="gval">${Math.round(pct * 100)}</div></div>
+    <p class="msg" style="text-align:center;margin-top:8px">${grade} · ${total - rd.g.miss} of ${total} answered</p>`;
+}
+
+function renderActive(rd){
+  const el = document.getElementById('active');
+  if (S.stage === 'pre') {
+    const pair = rd.v.pair;
+    el.innerHTML = `<div class="hero"><span class="chip acc" style="background:rgba(255,255,255,.85)">${rd.g.grade === 'A' ? 'Grade A+' : rd.g.grade === 'B' ? 'Grade B' : rd.g.grade === 'U' ? 'Ungraded' : 'Grade pending'}</span>
+      <div class="big-pair">${pair ? esc(pair) : 'No pair yet'}</div>
+      <p style="margin:0;opacity:.9">${pair ? pairName(S.dir) : 'Complete vetting to pick a pair'}</p></div>`;
+    return;
+  }
+  const t = LOG.find(x => x.id === (S.stage === 'during' ? S.tid : S.ptid));
+  if (!t) { el.innerHTML = '<div style="padding:22px"><p class="label" style="margin-bottom:6px">Active trade</p><p class="msg">No trade selected.</p></div>'; return; }
+  el.innerHTML = `<div class="hero"><span class="chip acc" style="background:rgba(255,255,255,.85)">${t.result === 'open' ? 'Open trade' : 'Closed trade'}</span>
+      <div class="big-pair">${esc(t.pair)}</div><p style="margin:0;opacity:.9">${pairName(t.dir)} · ${when(t.ts)}</p></div>
+    <div style="padding:20px 22px"><p class="msg" style="margin-bottom:10px;color:var(--ink)">Entry ${t.entry} · SL ${t.sl} · TP ${t.tp}</p>
+    ${(t.accountsUsed || []).map(x => `<div class="acc"><div class="acc-top"><b>${esc(x.firm)}</b><span class="chip">${x.lots == null ? '' : x.lots.toFixed(2) + ' lots'}</span></div>
+      <span class="msg">${esc(x.number)} · Risk ${x.risk}%</span></div>`).join('') || '<p class="msg">No account recorded.</p>'}</div>`;
+}
+
+function renderOpen(){
+  const open = openTrades();
+  document.getElementById('openList').innerHTML = `<p class="label" style="margin-bottom:12px">Open trades</p>` +
+    (open.length ? '<div class="list">' + open.map(x => `<button class="row" data-goto="${x.id}"><span class="dot" style="background:${x.dir === 'bull' ? '#1FA971' : '#E5484D'}"></span>
+      <span><span style="font-weight:600">${esc(x.pair)}</span> <span class="msg">${pairName(x.dir)} · ${when(x.ts)}</span></span><span class="chip acc">Check in</span></button>`).join('') + '</div>'
+      : '<p class="msg">No open trades.</p>');
+}
+
+function renderVerdict(rd){
+  const el = document.getElementById('verdict');
+  if (S.stage !== 'pre') { el.innerHTML = '<p class="label" style="margin-bottom:12px">Actions</p><div class="btns"><button class="btn light" data-act="reset">Reset checklist</button></div>'; return; }
+  const title = rd.ok ? 'Take the trade' : 'Not ready';
+  const sub = rd.ok ? `${rd.v.pair} ${pairName(S.dir)} · Grade ${rd.g.grade === 'A' ? 'A+' : 'B'} · ${rd.acc.filter(a => a.ok).length} account(s)` : rd.block;
+  el.innerHTML = `<p class="label" style="margin-bottom:6px">Verdict</p>
+    <h2 class="verdict-title">${esc(title)}</h2>
+    <p class="muted" style="margin:0">${esc(sub)}</p>
+    <div class="btns">
+      <button class="btn green" data-act="take-entry" ${rd.ok ? '' : 'disabled'}>Take entry</button>
+      <button class="btn light" data-act="log-skip">Log as no trade</button>
+      <button class="btn light" data-act="reset">Reset checklist</button>
+    </div>`;
+}
+
+function renderDuring(){
+  const open = openTrades();
+  if (!open.find(x => x.id === S.tid)) S.tid = open[0] ? open[0].id : null;
+  const t = LOG.find(x => x.id === S.tid);
+  const form = document.getElementById('duringForm');
+  const list = document.getElementById('checkins');
+  if (!t) {
+    form.innerHTML = '<div class="step-head"><span class="num">2</span><span class="step-title">During trade</span></div><p class="msg" style="margin-top:12px">No open trades. Take an entry in stage 1 to start.</p>';
+    list.innerHTML = '';
+    return;
+  }
+  const d = S.dr.during;
+  const rules = SET.rules.map((r, i) => `<label class="check"><input type="checkbox" data-rule="${i}" ${(t.rulesChecked || [])[i] ? 'checked' : ''}> ${esc(r)}</label>`).join('');
+  const fibQ = t.pre && t.pre.fib === 'no'
+    ? `<div class="qblock"><span class="qtext">Entry was taken before price reached the 0.5 fib range. Did price come into the 0.5 range?</span>${seg('data-fibr="1"', [['yes','Yes'],['no','No']], t.fibReached)}</div>` : '';
+  form.innerHTML = `<div class="step-head"><span class="num">2</span><span class="step-title">During trade</span></div>
+    <div class="setup-body" style="margin-top:16px">
+      <div class="field"><label class="label" for="duringPick">Trade</label>
+        <select id="duringPick" class="inline" data-pick="during">${open.map(x => `<option value="${x.id}" ${x.id === S.tid ? 'selected' : ''}>${esc(x.pair)} ${pairName(x.dir)} · ${when(x.ts)}</option>`).join('')}</select></div>
+      <div class="field"><span class="qtext">Rules to follow in this trade</span>${rules}</div>
+      ${fibQ}
+      <div class="field"><span class="qtext">How do you feel right now?</span>${seg('data-sc="during" data-dk="feel"', MOODS, d.feel)}</div>
+      <div class="field"><span class="qtext">Urge to chase, revenge trade or add?</span>${seg('data-sc="during" data-dk="urge"', [['none','No urge'],['resisted','Yes, resisted'],['acted','Yes, acted on it']], d.urge)}</div>
+      <div class="field"><span class="qtext">What is going on in your mind?</span><textarea class="inline" rows="2" data-sc="during" data-dt="note">${esc(d.note || '')}</textarea></div>
+      <div class="btns"><button class="btn" data-act="save-checkin">Save check-in</button></div>
+      <div class="field"><span class="qtext">Has the trade ended?</span>
+        <div class="btns"><button class="btn light" data-act="ended-yes">Yes, go to review</button><button class="btn light" data-act="ended-no">No, still running</button></div></div>
+    </div>`;
+  const cs = (t.during || []).slice().reverse();
+  list.innerHTML = '<p class="label" style="margin-bottom:6px">Check-ins for this trade</p>' + (cs.length ? cs.map(c => {
+    const flagged = c.a.urge === 'acted';
+    return `<div class="qblock"><div class="qhead"><span class="qtext">${when(c.ts)}</span>${flagged ? '<span class="chip stop">Urge acted on</span>' : ''}</div>
+      <p class="msg">Feel: ${esc(moodLabel(c.a.feel))} · Urge: ${esc(urgeLabel(c.a.urge))}</p>
+      ${c.a.note ? `<p class="msg" style="color:var(--ink)">"${esc(c.a.note)}"</p>` : ''}</div>`;
+  }).join('') : '<p class="msg">No check-ins yet for this trade.</p>');
+}
+
+function loadPost(){
+  const t = LOG.find(x => x.id === S.ptid);
+  S.dr.post = t && t.post ? JSON.parse(JSON.stringify(t.post.a)) : {};
+  if (t && !has(S.dr.post.r) && t.R != null) S.dr.post.r = t.R;
+}
+
+function renderPost(){
+  const trades = tradesNewest();
+  if (!trades.find(x => x.id === S.ptid)) { S.ptid = trades[0] ? trades[0].id : null; loadPost(); }
+  const t = LOG.find(x => x.id === S.ptid);
+  const form = document.getElementById('postForm');
+  const sumEl = document.getElementById('reviewSummary');
+  if (!t) { form.innerHTML = '<div class="step-head"><span class="num">3</span><span class="step-title">Post-trade</span></div><p class="msg" style="margin-top:12px">No trades to review yet.</p>'; sumEl.innerHTML = ''; return; }
+  const d = S.dr.post;
+  const yn = (key, q, whyKey, whyQ) => `<div class="qblock"><span class="qtext">${esc(q)}</span>${seg(`data-sc="post" data-dk="${key}"`, [['yes','Yes'],['no','No']], d[key])}
+    ${d[key] === 'yes' && whyKey ? `<div class="field"><span class="label">${esc(whyQ)}</span><input class="inline" data-sc="post" data-dtx="${whyKey}" value="${esc(d[whyKey] || '')}"></div>` : ''}</div>`;
+  const nearPipsLabel = `Did price reverse within ${SET.nearPips} pips of TP before triggering it?`;
+  form.innerHTML = `<div class="step-head"><span class="num">3</span><span class="step-title">Post-trade review</span></div>
+    <div class="setup-body" style="margin-top:16px">
+      <div class="field"><label class="label" for="postPick">Trade</label>
+        <select id="postPick" class="inline" data-pick="post">${trades.map(x => `<option value="${x.id}" ${x.id === S.ptid ? 'selected' : ''}>${esc(x.pair)} ${pairName(x.dir)} · ${when(x.ts)}${x.post ? ' (reviewed)' : ''}</option>`).join('')}</select></div>
+      <div class="field"><label class="label" for="postR">Result: +R for a win, -R for a loss, 0 for break-even</label><input id="postR" class="inline" type="number" step="0.1" data-sc="post" data-dn="r" value="${has(d.r) ? d.r : ''}"></div>
+      <div class="field"><span class="qtext">Account balances after this trade</span>
+        <p class="msg">Enter each account's balance from your dashboard. Stats use these numbers from this trade onward, instead of the calculated balance.</p>
+        ${(t.accountsUsed || []).length ? t.accountsUsed.map(u => { const a = SET.accounts.find(x => x.id === u.id); const v = (d.balances || {})[u.id]; return `<div class="planrow" style="padding:12px 0"><span style="font-weight:600">${esc(u.firm)} · ${esc(u.number)}</span><input class="inline" style="width:220px" type="number" step="0.01" data-bal="${u.id}" value="${has(v) ? v : ''}" placeholder="${a ? money(balanceAt(a, new Date(t.ts).getTime())).replace('$', '') : ''}"></div>`; }).join('') : '<p class="msg">No accounts were recorded for this trade.</p>'}
+      </div>
+      ${yn('moved', 'Did I move my SL?', 'movedWhy', 'Reason')}
+      ${yn('earlyEntry', 'Did I enter early?', 'earlyEntryWhy', 'Reason')}
+      ${yn('earlyExit', 'Did I exit early?', 'earlyExitWhy', 'Reason')}
+      ${yn('partials', 'Did I take partials?', 'partialsHow', 'How much?')}
+      <div class="field"><span class="qtext">Did I follow the plan?</span>${seg('data-sc="post" data-dk="followed"', [['yes','Yes'],['partial','Partially'],['no','No']], d.followed)}</div>
+      <div class="field"><span class="qtext">Mistakes I could have made</span>${multi('data-sc="post" data-dm="mistakes"', MISTAKES, d.mistakes)}</div>
+      ${(has(d.r) && d.r <= 0) ? `<div class="field"><label class="label">If price hit my SL or break-even, what was the potential move before reversal? (R:R and price level)</label><textarea class="inline" rows="2" data-sc="post" data-dt="slPotential">${esc(d.slPotential || '')}</textarea></div>` : ''}
+      ${yn('nearMiss', nearPipsLabel, 'nearPipsVal', 'How many pips short of TP?')}
+      <div class="field"><label class="label">What went well?</label><textarea class="inline" rows="2" data-sc="post" data-dt="well">${esc(d.well || '')}</textarea></div>
+      <div class="field"><label class="label">What went wrong?</label><textarea class="inline" rows="2" data-sc="post" data-dt="wrong">${esc(d.wrong || '')}</textarea></div>
+      <div class="field"><label class="label">What to improve?</label><textarea class="inline" rows="2" data-sc="post" data-dt="improve">${esc(d.improve || '')}</textarea></div>
+      <div class="field"><label class="label">One-line lesson</label><input class="inline" data-sc="post" data-dtx="lesson" value="${esc(d.lesson || '')}"></div>
+      ${yn('moreAccounts', 'Did I take the trade in more accounts than suggested?', 'moreAccountsWhich', 'Which accounts?')}
+      <div class="btns"><button class="btn" data-act="save-review">Save review</button></div>
+    </div>`;
+  if (!t.post) sumEl.innerHTML = '<p class="label" style="margin-bottom:6px">Review</p><p class="msg">Not reviewed yet. Answer the questions and save.</p>';
+  else {
+    const a = t.post.a;
+    sumEl.innerHTML = '<p class="label" style="margin-bottom:8px">Saved review · ' + when(t.post.ts) + '</p><div class="summary">' +
+      Object.keys(a).filter(k => has(a[k])).map(k => `<div><span>${esc(POST_LABELS[k] || k)}</span><b style="text-align:right;max-width:60%">${esc(Array.isArray(a[k]) ? a[k].join(', ') : a[k])}</b></div>`).join('') + '</div>';
+  }
+}
+
+function renderBanner(){ document.getElementById('banner').textContent = S.msg || ''; }
+
+function renderStages(){
+  const open = openTrades().length;
+  const unrev = LOG.filter(x => x.action === 'trade' && !x.post).length;
+  const rd = readiness();
+  document.getElementById('stages').innerHTML = [
+    ['pre', '1 · Pre-trade', rd.g.miss ? rd.g.miss + ' to finish' : 'Setup ready'],
+    ['during', '2 · During trade', open + ' open'],
+    ['post', '3 · Post-trade', unrev + ' to review']
+  ].map(([v,l,c]) => `<button type="button" data-stage="${v}" aria-selected="${S.stage === v}"><span>${l}</span><span class="stat">${c}</span></button>`).join('');
+  ['pre','during','post'].forEach(s => document.getElementById('stage-' + s).classList.toggle('hidden', S.stage !== s));
+  return rd;
+}
+
+function renderCounter(){
+  const n = todayTrades();
+  const c = document.getElementById('counter');
+  c.textContent = 'Trades today ' + n + ' / ' + SET.maxTrades;
+  c.classList.toggle('full', n >= SET.maxTrades);
+}
+
+function renderNews(){
+  const now = new Date(), today = ymd();
+  const evs = SET.newsCal.filter(e => e.date === today).map(e => {
+    const [h, m] = e.time.split(':');
+    const t = new Date(now); t.setHours(+h || 0, +m || 0, 0, 0);
+    return {...e, diff: (t - now) / 60000};
+  }).filter(e => e.diff > -1 && e.diff <= 20);
+  const bn = document.getElementById('newsBanner');
+  if (!evs.length) { bn.className = 'banner'; bn.innerHTML = ''; }
+  else {
+    bn.className = 'banner alert';
+    bn.innerHTML = evs.map(e => `High-impact news ${e.diff <= 0 ? 'now' : 'in ' + Math.ceil(e.diff) + ' min'}: ${esc(e.ccy)} ${esc(e.name)} at ${esc(e.time)}`).join('<br>')
+      + ` <button class="btn light sm" style="margin-left:8px" data-act="alarm-on">${S.alarm ? 'Alarm on' : 'Enable alarm sound'}</button>`;
+    evs.forEach(e => { if (!S.notified[e.id]) { S.notified[e.id] = true; if (S.alarm) beep(); } });
+  }
+}
+
+function beep(){
+  try {
+    const AC = window.AudioContext || window.webkitAudioContext;
+    const ctx = new AC(), o = ctx.createOscillator(), g = ctx.createGain();
+    o.frequency.value = 880; o.connect(g); g.connect(ctx.destination); o.start(); g.gain.setValueAtTime(0.2, ctx.currentTime);
+    o.stop(ctx.currentTime + 0.5);
+  } catch (e) {}
+}
+
+// ---- decision log ----
+function renderLog(){
+  document.getElementById('filters').innerHTML = [['all','All'],['trade','Trades'],['skip','Skips'],['open','Open']]
+    .map(([v,l]) => `<button type="button" data-filter="${v}" aria-pressed="${S.filter === v}">${l}</button>`).join('');
+  let items = LOG.slice().sort((a,b) => new Date(b.ts) - new Date(a.ts));
+  if (S.filter === 'trade') items = items.filter(x => x.action === 'trade');
+  if (S.filter === 'skip') items = items.filter(x => x.action === 'skip');
+  if (S.filter === 'open') items = items.filter(x => x.action === 'trade' && x.result === 'open');
+  document.getElementById('list').innerHTML = items.length ? items.map(x => {
+    const color = x.action === 'skip' ? '#A7B0A9' : (x.dir === 'bull' ? '#1FA971' : '#E5484D');
+    const label = x.action === 'skip' ? 'Skipped' : (x.result === 'open' ? 'Open' : fmtR(x.R));
+    const cls = x.R > 0 ? 'pos' : x.R < 0 ? 'neg' : '';
+    return `<button class="row" data-entry="${x.id}" aria-current="${S.sel === x.id}">
+      <span class="dot" style="background:${color}"></span>
+      <span><span style="font-weight:600">${esc(x.pair)}</span> <span style="color:var(--muted)">${x.action === 'trade' ? pairName(x.dir) : ''}${x.grade ? ' · ' + (x.grade === 'A' ? 'A+' : x.grade === 'B' ? 'B' : 'Ungraded') : ''} · ${when(x.ts)}</span></span>
+      <span class="val ${cls}">${label}</span></button>`;
+  }).join('') : '<p class="msg">Nothing here yet.</p>';
+  renderDrawer();
+}
+
+function ans(label, value){
+  return `<div class="ans"><span class="msg">${esc(label)}</span><span>${esc(value)}</span></div>`;
+}
+function preAnswer(pre, k){
+  const v = pre[k];
+  if ((k === 'newsCur' || k === 'newsNext') && v === 'high') {
+    const ty = pre[k + 'Type'];
+    return optTxt(k, v) + (ty ? ' · ' + ty : '');
+  }
+  if (Array.isArray(v)) return v.length ? v.map(x => optTxt(k, x)).join(', ') : '—';
+  if (!has(v)) return '—';
+  return optTxt(k, v);
+}
+function customAnswer(c, v){
+  if (Array.isArray(v)) return v.length ? v.map(cap).join(', ') : '—';
+  return has(v) ? (c.type === 'radio' ? cap(v) : String(v)) : '—';
+}
+function postVal(k, v){
+  if (k === 'mistakes') return (Array.isArray(v) ? v : []).map(m => (MISTAKES.find(x => x[0] === m) || [0, m])[1]).join(', ') || '—';
+  if (k === 'followed') return ({yes:'Yes', partial:'Partially', no:'No'})[v] || String(v);
+  if (v === 'yes') return 'Yes';
+  if (v === 'no') return 'No';
+  return Array.isArray(v) ? v.join(', ') : String(v);
+}
+
+// Everything recorded for one trade: setup answers at entry, check-ins (state of mind), rules, and review.
+function tradeDetails(t){
+  const pre = t.pre || {};
+  const hasPre = Object.keys(pre).length > 0;
+  const setup = hasPre
+    ? orderedKeys().map(k => customById(k) ? ans(customById(k).label, customAnswer(customById(k), (pre.custom || {})[k])) : ans(qLabel(k), preAnswer(pre, k))).join('')
+    : '<p class="msg">No setup answers were recorded for this trade.</p>';
+  const fib = t.fibReached ? ans('Price reached the 0.5 fib range', t.fibReached === 'yes' ? 'Yes' : 'No') : '';
+  const cins = (t.during || []).slice().reverse().map(c => ans(when(c.ts), `Feel: ${moodLabel(c.a.feel)} · Urge: ${urgeLabel(c.a.urge)}${c.a.note ? '\n' + c.a.note : ''}`)).join('');
+  const rules = SET.rules.map((r, i) => ans(r, t.rulesChecked && t.rulesChecked[i] ? 'Ticked' : 'Not ticked')).join('');
+  const post = t.post ? Object.keys(POST_LABELS).filter(k => has(t.post.a[k])).map(k => ans(POST_LABELS[k], postVal(k, t.post.a[k]))).join('') + Object.entries(t.post.a.balances || {}).map(([id, v]) => { const a = SET.accounts.find(x => x.id === id); return ans('Balance after trade · ' + (a ? a.firm + ' ' + (a.number || '') : id), money(+v)); }).join('') : '';
+  const sec = (title, body, open) => `<details ${open ? 'open' : ''} style="margin-top:20px"><summary>${title}</summary>${body || '<p class="msg">Nothing recorded.</p>'}</details>`;
+  return `<div class="card"><p class="label" style="font-size:15px;color:var(--ink);font-weight:600;margin-bottom:4px">Trade record</p>
+    ${sec('Setup answers at entry', setup, true)}
+    ${sec('Check-ins and state of mind', fib + cins, true)}
+    ${sec('Rules during the trade', rules, false)}
+    ${sec('Post-trade review', post, false)}</div>`;
+}
+
+function renderDrawer(){
+  const x = LOG.find(e => e.id === S.sel);
+  const el = document.getElementById('drawer');
+  if (!x) { el.innerHTML = '<div class="card"><p class="msg">Select an entry to see its details and record a result.</p></div>'; return; }
+  if (x.action === 'skip') {
+    el.innerHTML = `<div class="drawer"><span class="label" style="color:rgba(255,255,255,.85)">Skipped decision</span>
+      <div class="big" style="font-size:34px">${esc(x.pair)}</div><p class="muted" style="margin:0">${when(x.ts)}</p>
+      <div class="kv"><div style="grid-column:1/-1"><span>Reason</span><b style="font-size:15px">${esc(x.reason)}</b></div></div>
+      <div class="btns"><button class="btn light" data-act="delete" data-id="${x.id}">Delete entry</button></div></div>`;
+    return;
+  }
+  el.innerHTML = `<div class="drawer">
+    <span class="label" style="color:rgba(255,255,255,.85)">${esc(x.pair)} · ${pairName(x.dir)} · ${when(x.ts)}</span>
+    <div class="big">${x.result === 'open' ? 'Open' : fmtR(x.R)}</div>
+    <div class="kv"><div><span>Entry</span><b>${x.entry}</b></div><div><span>Stop</span><b>${x.sl}</b></div><div><span>Target</span><b>${x.tp}</b></div><div><span>Planned R:R</span><b>${x.rr}</b></div></div>
+    <p class="label" style="color:rgba(255,255,255,.85)">Record result</p>
+    <div class="btns">
+      <button class="btn light" data-act="result" data-mode="win" data-id="${x.id}">Win</button>
+      <button class="btn light" data-act="result" data-mode="loss" data-id="${x.id}">Loss</button>
+      <button class="btn light" data-act="result" data-mode="be" data-id="${x.id}">Break-even</button>
+      <button class="btn light" data-act="result" data-mode="open" data-id="${x.id}">Mark open</button>
+    </div>
+    <div class="g2"><input id="customR" type="number" step="0.1" placeholder="Custom R, e.g. 1.4"><button class="btn" data-act="result" data-mode="custom" data-id="${x.id}">Save custom R</button></div>
+    <div class="btns"><button class="btn light" data-act="delete" data-id="${x.id}">Delete entry</button></div></div>
+    ${tradeDetails(x)}`;
+}
+
+// ---- statistics ----
+function statGroup(items){
+  return items.map(([k,n,R,wr]) => `<div class="bar-row"><span style="font-weight:600">${esc(k)}</span>
+    <div class="bar"><i class="${R < 0 ? 'neg' : ''}" style="width:${Math.min(100, Math.abs(R) * 20)}%"></i></div>
+    <span class="val" style="text-align:right">${n} · ${fmtR(R)} · ${fmtPct(wr)}</span></div>`).join('');
+}
+function dirStats(dir){
+  const set = LOG.filter(x => x.action === 'trade' && x.dir === dir && x.R != null && x.result !== 'open');
+  const w = set.filter(x => x.R > 0).length;
+  return { n: set.length, total: sum(set.map(x => x.R)), avg: set.length ? sum(set.map(x => x.R)) / set.length : 0, win: set.length ? w / set.length : 0 };
+}
+function pairBars(title, a, b, fmt){
+  const W = 300, H = 220, base = 110, span = 70;
+  const max = Math.max(Math.abs(a), Math.abs(b)) || 1;
+  const bar = (x, v, color) => {
+    const h = Math.abs(v) / max * span;
+    const y = v >= 0 ? base - h : base;
+    const ly = v >= 0 ? base - h - 8 : base + h + 16;
+    return `<rect x="${x}" y="${y}" width="72" height="${Math.max(h, 1)}" rx="10" style="fill:${color}"/><text x="${x + 36}" y="${ly}" text-anchor="middle" style="fill:var(--ink);font-size:13px;font-weight:600">${fmt(v)}</text>`;
+  };
+  return `<div><p class="label" style="margin-bottom:8px">${title}</p><svg viewBox="0 0 ${W} ${H}" width="100%" role="img" aria-label="${title}: long ${fmt(a)}, short ${fmt(b)}">
+    <line x1="20" x2="${W - 20}" y1="${base}" y2="${base}" style="stroke:var(--line)"/>
+    ${bar(60, a, 'var(--green)')}${bar(170, b, 'var(--red)')}
+    <text x="96" y="214" text-anchor="middle" style="fill:var(--muted);font-size:13px">Long</text>
+    <text x="206" y="214" text-anchor="middle" style="fill:var(--muted);font-size:13px">Short</text></svg></div>`;
+}
+function renderLS(){
+  const L = dirStats('bull'), Sh = dirStats('bear');
+  document.getElementById('lsMeta').textContent = `Long ${L.n} closed · Short ${Sh.n} closed`;
+  document.getElementById('ls').innerHTML = pairBars('Total R', L.total, Sh.total, fmtR) +
+    pairBars('Average R per trade', L.avg, Sh.avg, fmtR) + pairBars('Win rate', L.win, Sh.win, fmtPct);
+}
+
+function renderStats(){
+  const trades = LOG.filter(x => x.action === 'trade');
+  const skips = LOG.filter(x => x.action === 'skip');
+  const closed = trades.filter(x => x.R != null && x.result !== 'open');
+  const wins = closed.filter(x => x.R > 0), losses = closed.filter(x => x.R < 0);
+  const winRate = closed.length ? wins.length / closed.length : null;
+  const lossRate = closed.length ? losses.length / closed.length : 0;
+  const avgWin = wins.length ? sum(wins.map(x => x.R)) / wins.length : 0;
+  const avgLoss = losses.length ? Math.abs(sum(losses.map(x => x.R))) / losses.length : 0;
+  const avgR = closed.length ? sum(closed.map(x => x.R)) / closed.length : null;
+  const exp = closed.length ? winRate * avgWin - lossRate * avgLoss : null;
+  const skipRate = LOG.length ? skips.length / LOG.length : null;
+  const reviewed = trades.filter(x => x.post);
+  const breaks = reviewed.filter(x => (x.post.a.mistakes || []).some(m => m !== 'none')).length;
+  const nearMiss = reviewed.filter(x => x.post.a.nearMiss === 'yes').length;
+  const extraAcc = reviewed.filter(x => x.post.a.moreAccounts === 'yes').length;
+  const accountsUsed = trades.reduce((s,x) => s + ((x.accountsUsed || []).length), 0);
+  const tile = (l, v, s='') => `<div class="tile"><p class="label" style="margin-bottom:8px">${l}</p><div class="big">${v}${s ? ` <small>${s}</small>` : ''}</div></div>`;
+  document.getElementById('tiles').innerHTML =
+    tile('Decisions', LOG.length) + tile('Trades taken', trades.length) + tile('Skip rate', fmtPct(skipRate)) +
+    tile('Win rate', fmtPct(winRate), closed.length ? closed.length + ' closed' : '') + tile('Average R', avgR == null ? '—' : fmtR(avgR)) +
+    tile('Expectancy', exp == null ? '—' : fmtR(exp), 'per trade') +
+    tile('Near-miss TP', nearMiss) + tile('Trades with a rule break', breaks) + tile('Extra-account trades', extraAcc) +
+    tile('Account entries', accountsUsed) + tile('Reviewed', reviewed.length + ' / ' + trades.length) + tile('Open trades', openTrades().length);
+
+  const pts = [0]; let cum = 0;
+  closed.slice().sort((a,b) => new Date(a.ts) - new Date(b.ts)).forEach(x => { cum += x.R; pts.push(cum); });
+  const eq = document.getElementById('equity');
+  if (pts.length < 2) eq.innerHTML = '<p class="msg">Record a result on a closed trade to see the curve.</p>';
+  else {
+    const W = 640, H = 200, P = 16;
+    const max = Math.max(0, ...pts), min = Math.min(0, ...pts), span = (max - min) || 1;
+    const X = i => P + i * (W - 2 * P) / (pts.length - 1);
+    const Y = v => H - P - (v - min) / span * (H - P - 34);
+    const line = pts.map((v,i) => (i ? 'L' : 'M') + X(i).toFixed(1) + ',' + Y(v).toFixed(1)).join('');
+    const last = pts.length - 1;
+    eq.innerHTML = `<svg viewBox="0 0 ${W} ${H}" width="100%" role="img" aria-label="Cumulative R curve">
+      <line x1="${P}" x2="${W-P}" y1="${Y(0)}" y2="${Y(0)}" style="stroke:var(--line)" stroke-dasharray="4 4"/>
+      <path d="${line} L${X(last)},${Y(0)} L${X(0)},${Y(0)} Z" style="fill:rgba(75,59,240,.12)"/>
+      <path d="${line}" fill="none" style="stroke:var(--accent)" stroke-width="2.5" stroke-linejoin="round"/>
+      <circle cx="${X(last)}" cy="${Y(pts[last])}" r="5" style="fill:var(--ink)"/>
+      <text x="${P}" y="${Y(0)-6}" style="fill:var(--muted);font-size:12px">0R</text>
+      <text x="${W-P}" y="${Y(pts[last])-10}" text-anchor="end" style="fill:var(--ink);font-size:13px;font-weight:600">${fmtR(pts[last])}</text></svg>`;
+  }
+
+  const gradeStats = ['A','B','U'].map(g => {
+    const set = closed.filter(x => x.grade === g);
+    const w = set.filter(x => x.R > 0).length;
+    return [g === 'A' ? 'A+' : g === 'B' ? 'B' : 'Ungraded', set.length, set.length ? sum(set.map(x => x.R)) : 0, set.length ? w / set.length : null];
+  });
+  document.getElementById('grades').innerHTML = statGroup(gradeStats);
+  const pairs = ['EURUSD','GBPUSD'].map(p => {
+    const set = closed.filter(x => x.pair === p), w = set.filter(x => x.R > 0).length;
+    return [p, set.length, sum(set.map(x => x.R)), set.length ? w / set.length : null];
+  });
+  document.getElementById('pairs').innerHTML = statGroup(pairs);
+
+  const newsMap = {};
+  trades.forEach(x => {
+    [x.pre && x.pre.newsCurType, x.pre && x.pre.newsNextType].forEach(n => { if (n) { newsMap[n] = newsMap[n] || []; newsMap[n].push(x); } });
+  });
+  const newsRows = Object.entries(newsMap).map(([k, arr]) => {
+    const c = arr.filter(x => x.R != null && x.result !== 'open');
+    return [k, arr.length, c.length ? sum(c.map(x => x.R)) : 0, c.length ? c.filter(x => x.R > 0).length / c.length : null];
+  });
+  document.getElementById('news').innerHTML = newsRows.length ? statGroup(newsRows) : '<p class="msg">No news-linked setups logged yet.</p>';
+
+  const counts = {};
+  skips.forEach(x => counts[x.reason] = (counts[x.reason] || 0) + 1);
+  const reasons = Object.entries(counts).sort((a,b) => b[1] - a[1]);
+  document.getElementById('reasons').innerHTML = reasons.length
+    ? reasons.map(([k,v]) => `<div style="display:flex;justify-content:space-between;gap:12px;padding:10px 0;border-top:1px solid var(--line);font-size:14px"><span>${esc(k)}</span><span class="val">${v}</span></div>`).join('')
+    : '<p class="msg">No skipped decisions logged.</p>';
+
+  renderLS();
+  renderBalance();
+}
+
+// Balance over time for one account: starting balance, then one point per closed trade.
+function balanceSeries(a, from, to){
+  const end = to != null ? to : Date.now();
+  const evs = acctEvents(a);
+  const start = from != null ? from : (evs.length ? evs[0].t - 1 : end - 1);
+  const pts = [{t: start, v: balanceAt(a, start)}];
+  evs.filter(e => e.t > start && e.t <= end).forEach(e => pts.push({t: e.t, v: balanceAt(a, e.t)}));
+  if (pts[pts.length - 1].t < end) pts.push({t: end, v: balanceAt(a, end)});
+  return pts;
+}
+// Sum of all visible accounts at every moment any of them changed (value holds between points).
+function timelineTotal(series){
+  const ts = [...new Set(series.flatMap(s => s.pts.map(p => p.t)))].sort((a, b) => a - b);
+  const at = (pts, t) => { let v = pts[0].v; for (const p of pts) { if (p.t <= t) v = p.v; else break; } return v; };
+  return ts.map(t => ({t, v: sum(series.map(s => at(s.pts, t)))}));
+}
+
+function renderBalance(){
+  const f = S.stat;
+  const from = f.from ? new Date(f.from + 'T00:00:00').getTime() : null;
+  const to = f.to ? new Date(f.to + 'T23:59:59.999').getTime() : null;
+  const sizes = [...new Set(SET.accounts.map(a => +a.size))].sort((x, y) => x - y);
+  const list = SET.accounts.filter(a =>
+    (f.size === 'all' || +a.size === +f.size) &&
+    (f.stage === 'all' || a.type === f.stage) &&
+    (f.week === 'all' || String(a.week || 0) === f.week));
+  const series = list.map((a, i) => ({a, pts: balanceSeries(a, from, to), color: PALETTE[i % PALETTE.length]}));
+  const sel = (key, opts, cur) => `<label class="field"><span class="label">${key.label}</span><select class="inline" data-sf="${key.k}">${opts.map(([v, l]) => `<option value="${esc(v)}" ${String(cur) === String(v) ? 'selected' : ''}>${esc(l)}</option>`).join('')}</select></label>`;
+  const controls = `<div class="filter-grid">
+      ${sel({k:'size', label:'Account size'}, [['all','All sizes'], ...sizes.map(s => [String(s), '$' + (s / 1000) + 'K'])], f.size)}
+      ${sel({k:'stage', label:'Stage'}, [['all','All stages'], ...ACCT_TYPES.map(t => [t, t])], f.stage)}
+      ${sel({k:'week', label:'Weekly group'}, [['all','All accounts'], ['0','Unassigned'], ...WEEKS.map(w => [String(w), 'Week ' + w])], f.week)}
+      <label class="field"><span class="label">From</span><input class="inline" type="date" data-sf="from" value="${esc(f.from)}"></label>
+      <label class="field"><span class="label">To</span><input class="inline" type="date" data-sf="to" value="${esc(f.to)}"></label>
+    </div>
+    <div class="acct-head-top" style="margin-bottom:8px"><label class="check"><input type="checkbox" data-sf="total" ${f.total ? 'checked' : ''}> Show combined total</label>
+      <button type="button" class="btn light sm" data-sfclear="1">Clear dates</button></div>`;
+  let body;
+  if (!series.length) body = '<p class="msg" style="margin-top:12px">No accounts match these filters.</p>';
+  else {
+    const all = series.flatMap(s => s.pts);
+    const total = f.total ? timelineTotal(series) : null;
+    const xMin = Math.min(...all.map(p => p.t)), xMax = Math.max(...all.map(p => p.t));
+    let vals = all.map(p => p.v);
+    if (total) vals = vals.concat(total.map(p => p.v));
+    let yMin = Math.min(...vals), yMax = Math.max(...vals);
+    const pad = (yMax - yMin) * 0.08 || Math.max(Math.abs(yMax) * 0.02, 1);
+    yMin -= pad; yMax += pad;
+    const W = 900, H = 320, L = 70, R = 16, T = 16, B = 36;
+    const X = t => xMax === xMin ? (L + W - R) / 2 : L + (t - xMin) / (xMax - xMin) * (W - L - R);
+    const Y = v => T + (1 - (v - yMin) / (yMax - yMin)) * (H - T - B);
+    const pathOf = pts => pts.map((p, i) => (i ? 'L' : 'M') + X(p.t).toFixed(1) + ',' + Y(p.v).toFixed(1)).join('');
+    let grid = '';
+    for (let k = 0; k <= 4; k++) {
+      const v = yMin + (yMax - yMin) * k / 4;
+      grid += `<line x1="${L}" x2="${W - R}" y1="${Y(v)}" y2="${Y(v)}" style="stroke:var(--line)"/><text x="${L - 10}" y="${Y(v) + 4}" text-anchor="end" style="fill:var(--muted);font-size:12px">$${(v / 1000).toFixed(1)}k</text>`;
+      const t = xMin + (xMax - xMin) * k / 4;
+      grid += `<text x="${X(t)}" y="${H - 10}" text-anchor="middle" style="fill:var(--muted);font-size:12px">${new Date(t).toLocaleDateString([], {month:'short', day:'numeric'})}</text>`;
+    }
+    const lines = series.map(s => `<path d="${pathOf(s.pts)}" fill="none" style="stroke:${s.color}" stroke-width="2.2" stroke-linejoin="round"/>` +
+      s.pts.map(p => `<circle cx="${X(p.t)}" cy="${Y(p.v)}" r="3" style="fill:${s.color}"/>`).join('')).join('');
+    const totalLine = total ? `<path d="${pathOf(total)}" fill="none" style="stroke:var(--ink)" stroke-width="2" stroke-dasharray="6 5"/>` : '';
+    const legend = series.map(s => {
+      const last = s.pts[s.pts.length - 1].v, d = last - s.pts[0].v;
+      return `<div class="legend-item"><span class="dot" style="background:${s.color}"></span>
+        <div><div style="font-weight:600">${esc(s.a.firm)} · ${esc(s.a.label || '')}</div><div class="msg">${esc(s.a.type)} · ${money(+s.a.size)} · ${s.a.week ? 'Week ' + s.a.week : 'Unassigned'}</div></div>
+        <div style="text-align:right"><div class="val">${money(last)}</div><div class="msg ${d < 0 ? 'neg' : d > 0 ? 'pos' : ''}">${money(d)}</div></div></div>`;
+    }).join('');
+    const now = series.reduce((s, x) => s + x.pts[x.pts.length - 1].v, 0), start = series.reduce((s, x) => s + x.pts[0].v, 0);
+    body = `<svg viewBox="0 0 ${W} ${H}" width="100%" role="img" aria-label="Account balance progress">${grid}${totalLine}${lines}</svg>
+      <div class="stat-line"><span>${series.length} account(s)</span><span>Combined ${money(now)} · ${money(now - start)}</span></div>
+      <div style="margin-top:8px">${legend}</div>`;
+  }
+  document.getElementById('balanceCard').innerHTML = `<div class="acct-head-top" style="margin-bottom:4px"><p class="label" style="font-size:15px;color:var(--ink);font-weight:600">Account balance progress</p>
+    <span class="msg">Equity is shown as balance: open-trade P&amp;L is not recorded.</span></div>` + controls + body;
+}
+
+// ---- profile ----
+function txt(path, label, val){ return `<div class="field"><span class="label">${label}</span><input class="inline" data-p="${path}" value="${esc(val == null ? '' : val)}"></div>`; }
+function num(path, label, val, step){ return `<div class="field"><span class="label">${label}</span><input class="inline" type="number" step="${step || 'any'}" data-p="${path}" data-t="n" value="${val == null ? '' : val}"></div>`; }
+function sel(path, label, opts, val){ return `<div class="field"><span class="label">${label}</span><select class="inline" data-p="${path}">${opts.map(o => `<option ${o === val ? 'selected' : ''}>${esc(o)}</option>`).join('')}</select></div>`; }
+
+function acctCard(a, i){
+  const st = acctStats(a);
+  const isOpen = !!S.accOpen[a.id];
+  const dayLimit = a.size * a.maxDailyLoss / 100, dayLoss = Math.max(0, -st.todayPnl), dayRem = dayLimit - dayLoss;
+  const ddLimit = a.size * a.maxDD / 100, dd = Math.max(0, a.balance - st.cur), ddRem = ddLimit - dd;
+  const tgt = a.size * a.target / 100, gain = Math.max(0, st.cur - a.balance);
+  const bar = (used, limit) => { const f = Math.min(1, safeDiv(used, limit)); return `<div class="bar"><i class="${f >= 0.8 ? 'neg' : ''}" style="width:${(f * 100).toFixed(1)}%"></i></div>`; };
+  const pfTxt = st.pf == null ? '—' : st.pf === Infinity ? '∞' : st.pf.toFixed(2);
+  const daysLbl = a.days.length === 7 ? 'Every day' : a.days.length ? a.days.join(' · ') : 'No days';
+  const dayBtns = DAYS.map(d => `<button type="button" data-dayt="${a.id}" data-day="${d}" aria-pressed="${a.days.includes(d)}">${d}</button>`).join('');
+  const pnlCls = st.todayPnl < 0 ? 'neg' : st.todayPnl > 0 ? 'pos' : '';
+  return `<div class="card sub" style="margin-bottom:14px">
+    <button type="button" class="acct-head" data-acctoggle="${a.id}" aria-expanded="${isOpen}">
+      <div><div style="font-weight:600">${esc(a.firm || 'Firm')} · ${esc(a.label || '')}</div><div class="msg">${esc(a.number || '')} · ${esc(a.type)}</div></div>
+      <div><div class="k">Balance</div><div class="v">${money(st.cur)}</div></div>
+      <div><div class="k">Today</div><div class="v ${pnlCls}">${money(st.todayPnl)}</div></div>
+      <div><div class="k">Risk / week</div><div class="v">${a.risk}% · ${a.week ? 'W' + a.week : '—'}</div></div>
+      <span class="chev"><svg viewBox="0 0 24 24"><path d="M6 9l6 6 6-6"/></svg></span>
+    </button>
+    ${isOpen ? `<div class="acct-body">
+      <div class="section-head" style="margin-top:16px"><span class="chip">${esc(a.state)}</span><span class="chip acc">${a.share}% of account</span><span class="chip">${esc(daysLbl)}</span><span class="chip">${weekLabel(a.week)}</span></div>
+      <p class="sect-label">Objectives</p>
+      <div class="ob-grid">
+        <div class="ob"><div class="ob-top"><span>Max daily loss</span><span>${money(dayRem)} left</span></div>${bar(dayLoss, dayLimit)}<p class="msg">Limit ${money(dayLimit)} · lost today ${money(dayLoss)}</p></div>
+        <div class="ob"><div class="ob-top"><span>Max loss</span><span>${money(ddRem)} left</span></div>${bar(dd, ddLimit)}<p class="msg">Threshold ${money(a.balance - ddLimit)} · drawdown ${money(dd)}</p></div>
+        <div class="ob"><div class="ob-top"><span>Profit target</span><span>${Math.round(Math.min(1, safeDiv(gain, tgt)) * 100)}%</span></div>${bar(gain, tgt)}<p class="msg">${money(gain)} of ${money(tgt)}</p></div>
+      </div>
+      <p class="sect-label">Stats</p>
+      <div class="g4">
+        <div class="mini"><div class="k">Current balance</div><div class="v">${money(st.cur)}</div></div>
+        <div class="mini"><div class="k">Realized P&amp;L</div><div class="v ${st.realized < 0 ? 'neg' : st.realized > 0 ? 'pos' : ''}">${money(st.realized)}</div></div>
+        <div class="mini"><div class="k">Win ratio</div><div class="v">${fmtPct(st.winRate)}</div></div>
+        <div class="mini"><div class="k">Profit factor</div><div class="v">${pfTxt}</div></div>
+        <div class="mini"><div class="k">Average win</div><div class="v pos">${money(st.avgWin)}</div></div>
+        <div class="mini"><div class="k">Average loss</div><div class="v neg">${money(-st.avgLoss)}</div></div>
+        <div class="mini"><div class="k">Trades taken</div><div class="v">${st.trades}</div></div>
+        <div class="mini"><div class="k">Closed trades</div><div class="v">${st.closedN}</div></div>
+      </div>
+      <p class="sect-label">Settings</p>
+      <div class="g3">
+        ${txt('accounts.' + i + '.firm', 'Propfirm', a.firm)}
+        ${txt('accounts.' + i + '.number', 'Account number', a.number)}
+        ${txt('accounts.' + i + '.label', 'Account name', a.label)}
+        ${sel('accounts.' + i + '.type', 'Account type', ACCT_TYPES, a.type)}
+        ${sel('accounts.' + i + '.state', 'State', ['Evaluation','Funded','Breached','Passed'], a.state)}
+        ${num('accounts.' + i + '.size', 'Account size ($)', a.size)}
+        ${num('accounts.' + i + '.balance', 'Starting balance ($)', a.balance)}
+        ${num('accounts.' + i + '.share', 'Share of account traded (%)', a.share, '1')}
+        ${num('accounts.' + i + '.risk', 'Risk per trade (%)', a.risk, '0.05')}
+        ${num('accounts.' + i + '.commission', 'Commission per lot ($)', a.commission)}
+        ${num('accounts.' + i + '.maxDailyLoss', 'Max daily loss %', a.maxDailyLoss)}
+        ${num('accounts.' + i + '.maxDD', 'Max drawdown %', a.maxDD)}
+        ${num('accounts.' + i + '.target', 'Profit target %', a.target)}
+      </div>
+      <div class="field"><span class="label">Trading days for this account</span>
+        <div class="seg" role="group">${dayBtns}</div>
+        <div class="btns"><button type="button" class="btn light sm" data-dayq="${a.id}" data-q="all">All days</button><button type="button" class="btn light sm" data-dayq="${a.id}" data-q="weekdays">Weekdays</button></div>
+      </div>
+      <label class="check"><input type="checkbox" data-p="accounts.${i}.newsAllowed" ${a.newsAllowed ? 'checked' : ''}> This account allows trading news</label>
+      <div class="field"><span class="label">Rules and notes</span><textarea class="inline" rows="2" data-p="accounts.${i}.rules">${esc(a.rules || '')}</textarea></div>
+      <div class="btns"><button type="button" class="btn danger sm" data-pact="delAcc" data-i="${i}">Delete account</button></div>
+    </div>` : ''}
+  </div>`;
+}
+
+function weekPlanSection(){
+  const tiles = WEEKS.map(w => {
+    const accs = SET.accounts.filter(a => a.week === w);
+    const risk = sum(accs.map(a => +a.risk || 0));
+    return `<div class="wk-tile ${w === SET.activeWeek ? 'on' : ''}"><div class="k">Week ${w}${w === SET.activeWeek ? ' · active' : ''}</div>
+      <div class="v">${accs.length} acct${accs.length === 1 ? '' : 's'}</div><div class="msg">${risk.toFixed(2)}% total risk</div></div>`;
+  }).join('');
+  const unassigned = SET.accounts.filter(a => !a.week).length;
+  const rows = SET.accounts.map(a => `<div class="planrow">
+      <div style="min-width:200px"><div style="font-weight:600">${esc(a.firm || 'Firm')} · ${esc(a.label || '')}</div>
+        <div class="msg">${esc(a.number || '')} · ${esc(a.state)} · risk ${a.risk}% · ${(a.days || []).length === 7 ? 'every day' : esc((a.days || []).join(' · ')) || 'no days'}</div></div>
+      <div class="seg compact" role="group" aria-label="Week for ${esc(a.firm)}">
+        ${WEEKS.map(w => `<button type="button" data-wk="${a.id}" data-wkv="${w}" aria-pressed="${a.week === w}">Week ${w}</button>`).join('')}
+        <button type="button" data-wk="${a.id}" data-wkv="0" aria-pressed="${!a.week}">None</button>
+      </div></div>`).join('') || '<p class="msg">Add an account first.</p>';
+  return `<div class="card"><p class="label" style="font-size:15px;color:var(--ink);font-weight:600;margin-bottom:6px">Week plan</p>
+      <p class="msg" style="margin-bottom:16px">Put each account in the week you trade it. The checklist shows the active week's accounts on the right, with their risk % and lot size.</p>
+      <div class="g5">${tiles}</div>
+      ${unassigned ? `<p class="msg" style="margin-top:12px">${unassigned} account(s) not assigned to a week yet.</p>` : ''}</div>
+    <div class="card"><p class="label" style="font-size:15px;color:var(--ink);font-weight:600;margin-bottom:4px">Assign accounts</p>${rows}</div>`;
+}
+
+function qRow(k){
+  const handle = `<span class="qhandle" draggable="true" data-qdrag="${esc(k)}" title="Drag to reorder" aria-label="Drag to reorder">⠿</span>`;
+  const c = customById(k);
+  if (!c) {
+    const opts = optList(k);
+    const optInputs = opts.map(([v, l]) => `<input class="inline" style="flex:1 1 200px" data-optlabel="${k}|${esc(v)}" value="${esc(l)}">`).join('');
+    return `<div class="card sub qcard" data-qdrop="${esc(k)}" style="padding:18px;margin-bottom:14px">
+      <div class="qtop">${handle}<input class="inline" style="flex:1" data-ql="${k}" value="${esc(qLabel(k))}"><span class="chip">Built-in</span></div>
+      ${opts.length ? `<div class="field" style="margin-top:14px"><span class="label">Answers (labels editable)</span><div class="optrow">${optInputs}</div></div>` : '<p class="msg" style="margin-top:12px">Free-text answer.</p>'}
+    </div>`;
+  }
+  const i = SET.custom.indexOf(c);
+  return `<div class="card sub qcard" data-qdrop="${esc(k)}" style="padding:18px;margin-bottom:14px">
+    <div class="qtop">${handle}<input class="inline" style="flex:1" data-p="custom.${i}.label" value="${esc(c.label)}"><span class="chip acc">Custom</span></div>
+    <div class="g2" style="margin-top:14px">
+      <div class="field"><span class="label">Answer type</span><select class="inline" data-p="custom.${i}.type">${[['radio','Single choice (radio)'],['multi','Multiple choice'],['text','Text field']].map(([v,l]) => `<option value="${v}" ${c.type === v ? 'selected' : ''}>${l}</option>`).join('')}</select></div>
+      <div class="field"><span class="label">Required</span><label class="check" style="padding-top:12px"><input type="checkbox" data-p="custom.${i}.req" ${c.req !== false ? 'checked' : ''}> Required before grading</label></div>
+    </div>
+    ${c.type === 'text' ? '' : `<div class="field" style="margin-top:14px"><span class="label">Answers, one per line</span><textarea class="inline" rows="3" data-qopts="${i}">${esc((c.options || []).join('\n'))}</textarea></div>`}
+    <div class="planrow" style="border-top:none;padding-bottom:0;margin-top:6px"><span class="msg">Drag ⠿ to reorder</span><button type="button" class="btn danger sm" data-pact="delQ" data-i="${i}">Remove question</button></div>
+  </div>`;
+}
+function checklistSection(){
+  return `<div class="card"><p class="label" style="font-size:15px;color:var(--ink);font-weight:600;margin-bottom:6px">Checklist questions</p>
+    <p class="msg" style="margin-bottom:16px">Drag ⠿ to reorder; the setup checklist follows this order. Rename questions and their answers here. Built-in answer values stay fixed, because grading depends on them.</p>
+    ${orderedKeys().map(qRow).join('')}
+    <div class="btns"><button type="button" class="btn sm" data-pact="addQ" data-type="radio">Add single choice</button><button type="button" class="btn sm" data-pact="addQ" data-type="multi">Add multiple choice</button><button type="button" class="btn sm" data-pact="addQ" data-type="text">Add text field</button></div></div>`;
+}
+
+function riskSection(){
+  const fieldOpts = (c) => Object.entries(RISK_FIELDS).map(([k, f]) => `<option value="${k}" ${c.field === k ? 'selected' : ''}>${esc(f.label)}</option>`).join('');
+  const rules = SET.riskRules.map((r, ri) => `<div class="card sub" style="padding:18px;margin-bottom:14px">
+      <div class="qtop"><input class="inline" style="flex:1" data-rn="${ri}" value="${esc(r.name)}"><button type="button" class="btn danger sm" data-pact="delRule" data-i="${ri}">Remove rule</button></div>
+      <div style="margin-top:16px">
+        ${r.when.map((c, ci) => `<div class="cond">
+          ${ci === 0 ? '<span class="msg">If</span>' : `<select class="inline" data-rk="join" data-ri="${ri}" data-ci="${ci}"><option value="and" ${c.join !== 'or' ? 'selected' : ''}>and</option><option value="or" ${c.join === 'or' ? 'selected' : ''}>or</option></select>`}
+          <select class="inline" data-rk="field" data-ri="${ri}" data-ci="${ci}">${fieldOpts(c)}</select>
+          <span class="msg">is</span>
+          <select class="inline" data-rk="value" data-ri="${ri}" data-ci="${ci}">${RISK_FIELDS[c.field].opts.map(([v, l]) => `<option value="${v}" ${c.value === v ? 'selected' : ''}>${esc(l)}</option>`).join('')}</select>
+          <button type="button" class="btn light sm" data-pact="delCond" data-i="${ri}" data-c="${ci}" ${r.when.length < 2 ? 'disabled' : ''}>Remove</button>
+        </div>`).join('')}
+        <div class="btns"><button type="button" class="btn light sm" data-pact="addCond" data-i="${ri}">Add condition</button></div>
+      </div>
+      <div class="g2" style="margin-top:16px">
+        <div class="field"><span class="label">Recommended risk, minimum (%)</span><input class="inline" type="number" step="0.05" data-rm="min" data-ri="${ri}" value="${r.min}"></div>
+        <div class="field"><span class="label">Recommended risk, maximum (%)</span><input class="inline" type="number" step="0.05" data-rm="max" data-ri="${ri}" value="${r.max}"></div>
+      </div></div>`).join('');
+  return `<div class="card"><p class="label" style="font-size:15px;color:var(--ink);font-weight:600;margin-bottom:6px">Risk rules</p>
+    <p class="msg" style="margin-bottom:16px">Conditions are read left to right, joined by and / or. The first rule whose conditions all match sets each account's recommended risk. An account's risk % must fall inside that range before it can trade.</p>
+    ${rules}
+    <div class="btns"><button type="button" class="btn sm" data-pact="addRule">Add rule</button></div></div>`;
+}
+
+function profileSection(){
+  const card = (title, body) => `<div class="card"><p class="label" style="font-size:15px;color:var(--ink);font-weight:600;margin-bottom:16px">${title}</p>${body}</div>`;
+  switch (S.psec) {
+    case 'profile': {
+      const initials = (SET.profile.name || '').split(/\s+/).filter(Boolean).slice(0,2).map(w => w[0].toUpperCase()).join('') || 'ME';
+      return `<div class="card"><div class="profile-head"><span class="av">${esc(initials)}</span>
+        <div><div style="font-size:20px;font-weight:600">${esc(SET.profile.name || 'Your name')}</div><p class="msg">${esc(SET.profile.email || 'No email set')}</p></div></div></div>` +
+        card('Your details', `<div class="g2">${txt('profile.name', 'Name', SET.profile.name)}${txt('profile.email', 'Email', SET.profile.email)}</div>
+        <p class="msg" style="margin-top:14px">Saved in this browser only. Sign-in is not connected yet.</p>`);
+    }
+    case 'accounts':
+      return `<div class="card"><div class="acct-head-top" style="margin-bottom:6px"><p class="label" style="font-size:15px;color:var(--ink);font-weight:600">Propfirm accounts</p><button type="button" class="btn sm" data-pact="addAcc">Add account</button></div>
+        <p class="msg" style="margin-bottom:16px">Click an account to expand its objectives, stats and settings. Week assignment is in Week plan.</p>
+        ${SET.accounts.map((a, i) => acctCard(a, i)).join('') || '<p class="msg">No accounts yet.</p>'}</div>`;
+    case 'plan': return weekPlanSection();
+    case 'checklist': return checklistSection();
+    case 'risk': return riskSection();
+    case 'grading': {
+      const radioFields = SET.custom.filter(x => x.type === 'radio');
+      const gradeBlock = g => `<div class="card sub" style="margin-bottom:14px;padding:18px"><div class="acct-head-top" style="margin-bottom:8px"><b>${g === 'A' ? 'Grade A+' : 'Grade B'}</b><span class="msg">Pass rule: a trade must meet every item</span></div>
+        ${SET.grading[g].map((c, i) => `<div class="crit">
+          <div class="g2"><input class="inline" data-p="grading.${g}.${i}.label" value="${esc(c.label)}"><select class="inline" data-p="grading.${g}.${i}.field" data-field="1">${[...Object.keys(FIELD_DEF), ...radioFields.map(x => 'c:' + x.id)].map(f => `<option value="${f}" ${f === c.field ? 'selected' : ''}>${esc(fieldLabel(f))}</option>`).join('')}</select></div>
+          <div class="seg">${optsFor(c.field).map(([v,l]) => `<button type="button" data-cpass="1" data-g="${g}" data-i="${i}" data-v="${esc(v)}" aria-pressed="${c.pass.includes(v)}">${esc(l)}</button>`).join('')}</div>
+          <div><button type="button" class="btn light sm" data-pact="delCrit" data-g="${g}" data-i="${i}">Remove item</button></div></div>`).join('')}
+        <div class="btns"><button type="button" class="btn sm" data-pact="addCrit" data-g="${g}">Add item</button></div></div>`;
+      return card('Grade A+ criteria', gradeBlock('A')) + card('Grade B criteria', gradeBlock('B'));
+    }
+    case 'rules':
+      return card('Rules to follow during the trade', `<p class="msg" style="margin-bottom:12px">One per line. They appear as checkboxes during each trade.</p>
+        <textarea class="inline" rows="6" data-lines="rules">${esc(SET.rules.join('\n'))}</textarea>`);
+    case 'news': {
+      const calRows = SET.newsCal.map((e, i) => `<div class="planrow"><span>${esc(e.date)} · ${esc(e.time)} · ${esc(e.ccy)} · ${esc(e.name)}</span><button type="button" class="btn light sm" data-pact="delCal" data-i="${i}">Remove</button></div>`).join('') || '<p class="msg">No news events added for any day.</p>';
+      return card('High-impact news list', `<p class="msg" style="margin-bottom:12px">One per line. These fill the news dropdowns in the setup.</p>
+        <textarea class="inline" rows="6" data-lines="newsList">${esc(SET.newsList.join('\n'))}</textarea>`) +
+      card('News calendar', `<p class="msg" style="margin-bottom:12px">A banner appears 20 minutes before each event while this page is open. Phone alarms and email need a backend, which this page does not have.</p>
+        ${calRows}
+        <div class="g3" style="margin-top:16px"><input class="inline" type="date" id="calDate" value="${ymd()}"><input class="inline" type="time" id="calTime"><select class="inline" id="calCcy"><option>USD</option><option>EUR</option><option>GBP</option></select></div>
+        <div class="g2" style="margin-top:12px"><select class="inline" id="calName">${SET.newsList.map(n => `<option>${esc(n)}</option>`).join('')}</select><button type="button" class="btn sm" data-pact="addCal">Add event</button></div>`);
+    }
+    case 'global':
+      return card('Global settings', `<div class="g2">
+        ${num('maxTrades', 'Max trades per day', SET.maxTrades, '1')}
+        ${num('minRR', 'Minimum R:R', SET.minRR, '0.05')}
+        ${num('nearPips', 'Near-miss TP distance (pips)', SET.nearPips, '0.5')}
+      </div>`);
+  }
+  return '';
+}
+
+function renderProfile(){
+  const nav = PSECS.map(([k,l]) => `<button type="button" data-psec="${k}" aria-current="${S.psec === k}">${l}</button>`).join('');
+  document.getElementById('profile').innerHTML = `<div class="profile-grid">
+    <nav class="card side" aria-label="Profile sections">${nav}</nav>
+    <div class="stack">${profileSection()}</div></div>`;
+}
+
+function setPath(path, value){
+  const k = path.split('.'); let o = SET;
+  for (let i = 0; i < k.length - 1; i++) o = o[k[i]];
+  o[k[k.length - 1]] = value;
+}
+
+function renderRail(){
+  const open = !!S.railOpen;
+  document.getElementById('app').classList.toggle('open', open);
+  document.getElementById('rail').classList.toggle('open', open);
+  const tg = document.getElementById('railToggle');
+  tg.setAttribute('aria-label', open ? 'Collapse sidebar' : 'Expand sidebar');
+  tg.dataset.label = open ? 'Collapse sidebar' : 'Expand sidebar';
+  document.getElementById('avatarName').textContent = SET.profile.name || 'Profile';
+}
+
+function render(){
+  const rd = readiness();
+  renderRail();
+  renderCounter();
+  renderBanner();
+  renderTop(rd);
+  renderGauge(rd);
+  renderWeekPanel(rd);
+  renderOpen();
+  renderStages();
+  if (S.stage === 'pre') { renderVetting(rd.v); renderSetup(rd); renderSizing(rd); }
+  if (S.stage === 'during') renderDuring();
+  if (S.stage === 'post') renderPost();
+  renderActive(rd);
+  renderVerdict(rd);
+  renderLog();
+  renderStats();
+  renderProfile();
+  renderNews();
+  const initials = (SET.profile.name || '').split(/\s+/).filter(Boolean).slice(0,2).map(w => w[0].toUpperCase()).join('');
+  document.getElementById('avatarInit').textContent = initials || 'ME';
+}
+
+const VIEWS = {check:['view-check','Checklist'], log:['view-log','Decision log'], stats:['view-stats','Statistics'], profile:['view-profile','Profile']};
+function showTab(t){
+  S.tab = t;
+  document.querySelectorAll('[data-tab]').forEach(b => b.setAttribute('aria-selected', b.dataset.tab === t));
+  Object.entries(VIEWS).forEach(([k,[id]]) => document.getElementById(id).classList.toggle('hidden', k !== t));
+  document.getElementById('crumbCur').textContent = VIEWS[t][1];
+  render();
+}
+
+document.addEventListener('click', e => {
+  if (e.target.closest('#railToggle')) { S.railOpen = !S.railOpen; return render(); }
+  const tab = e.target.closest('[data-tab]');
+  if (tab) return showTab(tab.dataset.tab);
+  const ps = e.target.closest('[data-psec]');
+  if (ps) { S.psec = ps.dataset.psec; return render(); }
+  if (e.target.closest('[data-sfclear]')) { S.stat.from = ''; S.stat.to = ''; return render(); }
+  const aw = e.target.closest('[data-activeweek]');
+  if (aw) { SET.activeWeek = +aw.dataset.activeweek; saveAll(); return render(); }
+  const wk = e.target.closest('[data-wk]');
+  if (wk) {
+    const a = SET.accounts.find(x => x.id === wk.dataset.wk);
+    if (a) { a.week = +wk.dataset.wkv; saveAll(); }
+    return render();
+  }
+  const cp = e.target.closest('[data-calcpair]');
+  if (cp) { S.calcPair = cp.dataset.pv; return render(); }
+  const ah = e.target.closest('[data-acctoggle]');
+  if (ah) { const id = ah.dataset.acctoggle; S.accOpen[id] = !S.accOpen[id]; return render(); }
+  const dt = e.target.closest('[data-dayt]');
+  if (dt) {
+    const a = SET.accounts.find(x => x.id === dt.dataset.dayt);
+    if (a) {
+      const d = dt.dataset.day;
+      a.days = a.days.includes(d) ? a.days.filter(x => x !== d) : DAYS.filter(x => x === d || a.days.includes(x));
+      saveAll();
+    }
+    return render();
+  }
+  const dq = e.target.closest('[data-dayq]');
+  if (dq) {
+    const a = SET.accounts.find(x => x.id === dq.dataset.dayq);
+    if (a) { a.days = dq.dataset.q === 'all' ? DAYS.slice() : DAYS.slice(0, 5); saveAll(); }
+    return render();
+  }
+  const go = e.target.closest('[data-goto]');
+  if (go) { S.tid = go.dataset.goto; S.stage = 'during'; S.msg = ''; return render(); }
+  const stage = e.target.closest('[data-stage]');
+  if (stage) { S.stage = stage.dataset.stage; S.msg = ''; return render(); }
+  const pk = e.target.closest('[data-pk][data-pv]');
+  if (pk) {
+    S.pre[pk.dataset.pk] = pk.dataset.pv;
+    if (pk.dataset.pk === 'newsCur' && pk.dataset.pv === 'none') S.pre.newsCurType = '';
+    if (pk.dataset.pk === 'newsNext' && pk.dataset.pv === 'none') S.pre.newsNextType = '';
+    S.msg = ''; return render();
+  }
+  const pm = e.target.closest('[data-pmulti]');
+  if (pm) {
+    const key = pm.dataset.pm;
+    let arr = Array.isArray(S.pre[key]) ? S.pre[key].slice() : [];
+    const v = pm.dataset.pv;
+    if (v === 'none') arr = ['none'];
+    else { arr = arr.filter(x => x !== 'none'); arr = arr.includes(v) ? arr.filter(x => x !== v) : arr.concat([v]); }
+    S.pre[key] = arr; return render();
+  }
+  const cu = e.target.closest('[data-custom]');
+  if (cu) { S.pre.custom = S.pre.custom || {}; S.pre.custom[cu.dataset.custom] = cu.dataset.pv; return render(); }
+  const cm = e.target.closest('[data-cm]');
+  if (cm) {
+    const id = cm.dataset.cm, v = cm.dataset.pv;
+    S.pre.custom = S.pre.custom || {};
+    const cur = Array.isArray(S.pre.custom[id]) ? S.pre.custom[id] : [];
+    S.pre.custom[id] = cur.includes(v) ? cur.filter(x => x !== v) : cur.concat([v]);
+    return render();
+  }
+  const bias = e.target.closest('[data-bias]');
+  if (bias) { S.bias = bias.dataset.pv; return render(); }
+  const dir = e.target.closest('[data-dir]');
+  if (dir) { S.dir = dir.dataset.pv; return render(); }
+  const dxy = e.target.closest('[data-dxy]');
+  if (dxy) { S.dxy = dxy.dataset.pv; return render(); }
+  const str = e.target.closest('[data-str]');
+  if (str) { S.str[str.dataset.str] = str.dataset.pv; return render(); }
+  const cmp = e.target.closest('[data-cmp]');
+  if (cmp) { S.cmp = cmp.dataset.pv; return render(); }
+  const eg = e.target.closest('[data-eurgbp]');
+  if (eg) { S.eurgbp = eg.dataset.pv; return render(); }
+  const pp = e.target.closest('[data-pairpick]');
+  if (pp) { S.pairPick = pp.dataset.pv; return render(); }
+  const sc = e.target.closest('[data-sc][data-dk][data-pv]');
+  if (sc) { S.dr[sc.dataset.sc][sc.dataset.dk] = sc.dataset.pv; return render(); }
+  const scm = e.target.closest('[data-sc][data-dm]');
+  if (scm) {
+    const s = scm.dataset.sc, k = scm.dataset.dm;
+    let arr = Array.isArray(S.dr[s][k]) ? S.dr[s][k].slice() : [];
+    const v = scm.dataset.pv;
+    if (v === 'none') arr = ['none']; else { arr = arr.filter(x => x !== 'none'); arr = arr.includes(v) ? arr.filter(x => x !== v) : arr.concat([v]); }
+    S.dr[s][k] = arr; return render();
+  }
+  const fibr = e.target.closest('[data-fibr]');
+  if (fibr) { const t = LOG.find(x => x.id === S.tid); if (t) { t.fibReached = fibr.dataset.pv; saveAll(); } return render(); }
+  const smallok = e.target.closest('[data-smallok]');
+  if (smallok) { S.smallOK = smallok.checked; return render(); }
+  const cpass = e.target.closest('[data-cpass]');
+  if (cpass) {
+    const g = cpass.dataset.g, i = +cpass.dataset.i, v = cpass.dataset.v;
+    const c = SET.grading[g][i];
+    c.pass = c.pass.includes(v) ? c.pass.filter(x => x !== v) : c.pass.concat([v]);
+    saveAll(); return render();
+  }
+  const pact = e.target.closest('[data-pact]');
+  if (pact) {
+    const a = pact.dataset.pact;
+    if (a === 'addAcc') { const na = {id:uid(), firm:'', number:'', label:'', type:'2-step', state:'Evaluation', size:100000, balance:100000, commission:4, newsAllowed:false, maxDailyLoss:5, maxDD:10, target:10, share:100, risk:1, week:0, days:DAYS.slice(), rules:''}; SET.accounts.push(na); S.accOpen[na.id] = true; }
+    if (a === 'delAcc') { SET.accounts.splice(+pact.dataset.i, 1); }
+    if (a === 'addCrit') SET.grading[pact.dataset.g].push({id:uid(), label:'New item', field:'liq', pass:['yes']});
+    if (a === 'delCrit') SET.grading[pact.dataset.g].splice(+pact.dataset.i, 1);
+    if (a === 'addQ') {
+      const type = pact.dataset.type;
+      SET.custom.push({id:uid(), label:'New question', type, options: type === 'text' ? [] : (type === 'multi' ? ['Option 1','Option 2'] : ['Yes','No']), req:true});
+    }
+    if (a === 'delQ') { SET.custom.splice(+pact.dataset.i, 1); }
+    if (a === 'addRule') SET.riskRules.push({id:uid(), name:'New rule', when:[{field:'grade', value:'A'}], min:1, max:1});
+    if (a === 'delRule') SET.riskRules.splice(+pact.dataset.i, 1);
+    if (a === 'addCond') SET.riskRules[+pact.dataset.i].when.push({join:'and', field:'stage', value:'eval'});
+    if (a === 'delCond') { const r = SET.riskRules[+pact.dataset.i]; if (r.when.length > 1) r.when.splice(+pact.dataset.c, 1); }
+    if (a === 'addCal') {
+      const date = document.getElementById('calDate').value, time = document.getElementById('calTime').value;
+      if (!date || !time) return;
+      SET.newsCal.push({id:uid(), date, time, ccy:document.getElementById('calCcy').value, name:document.getElementById('calName').value});
+    }
+    if (a === 'delCal') SET.newsCal.splice(+pact.dataset.i, 1);
+    saveAll(); return render();
+  }
+  const alarm = e.target.closest('[data-act="alarm-on"]');
+  if (alarm) { S.alarm = true; beep(); return render(); }
+  const f = e.target.closest('[data-filter]');
+  if (f) { S.filter = f.dataset.filter; return render(); }
+  const row = e.target.closest('[data-entry]');
+  if (row) { S.sel = row.dataset.entry; return render(); }
+  const a = e.target.closest('[data-act]');
+  if (!a) return;
+  const act = a.dataset.act;
+
+  if (act === 'take-entry') {
+    const rd = readiness();
+    if (!rd.ok) return;
+    const id = uid();
+    const used = rd.acc.filter(x => x.ok).map(x => ({id:x.acc.id, firm:x.acc.firm, number:x.acc.number, risk:x.risk, lots:x.lots, comm:x.comm, riskUsd:x.riskUsd, capital:x.capital}));
+    LOG.unshift({ id, ts:new Date().toISOString(), action:'trade', pair:rd.v.pair, dir:S.dir, grade:rd.g.grade, reason:'',
+      entry:+S.plan.entry, sl:+S.plan.sl, tp:+S.plan.tp, rr:+rd.pc.rr.toFixed(2), R:null, result:'open',
+      pre:JSON.parse(JSON.stringify(S.pre)), accountsUsed:used, rulesChecked:[], during:[], fibReached:null, ended:false });
+    saveAll(); S.tid = id; S.stage = 'during'; resetPre();
+    S.msg = 'Entry taken. Check in during the trade.';
+    return render();
+  }
+  if (act === 'log-skip') {
+    const rd = readiness();
+    LOG.unshift({ id:uid(), ts:new Date().toISOString(), action:'skip', pair: rd.v.cands.join(' / ') || 'None', dir:S.dir || '', grade:rd.g.grade,
+      reason: rd.v.stop || rd.v.pending || rd.block || 'Checklist not complete', R:null, result:null, pre:JSON.parse(JSON.stringify(S.pre)) });
+    saveAll(); S.sel = LOG[0].id; resetPre(); S.msg = 'Decision logged as no trade. Checklist reset.';
+    return render();
+  }
+  if (act === 'reset') { resetPre(); S.msg = ''; return render(); }
+  if (act === 'save-checkin') {
+    const t = LOG.find(x => x.id === S.tid); if (!t) return;
+    t.during = (t.during || []).concat([{ ts:new Date().toISOString(), a: JSON.parse(JSON.stringify(S.dr.during)) }]);
+    S.dr.during = {}; saveAll(); S.msg = 'Check-in saved.';
+    return render();
+  }
+  if (act === 'ended-yes') {
+    const t = LOG.find(x => x.id === S.tid); if (!t) return;
+    t.ended = true; saveAll(); S.ptid = t.id; S.stage = 'post'; loadPost(); S.msg = 'Trade ended. Complete the review.';
+    return render();
+  }
+  if (act === 'ended-no') { S.msg = 'Trade still running. Keep checking in.'; return render(); }
+  if (act === 'save-review') {
+    const t = LOG.find(x => x.id === S.ptid); if (!t) return;
+    const ans = JSON.parse(JSON.stringify(S.dr.post));
+    if (has(ans.r) && !isNaN(ans.r)) { t.R = +ans.r; t.result = ans.r > 0 ? 'win' : ans.r < 0 ? 'loss' : 'be'; }
+    t.post = { ts:new Date().toISOString(), a: ans };
+    saveAll(); S.msg = 'Review saved.';
+    return render();
+  }
+  if (act === 'delete') { LOG = LOG.filter(x => x.id !== a.dataset.id); saveAll(); S.sel = null; return render(); }
+  if (act === 'result') {
+    const x = LOG.find(e => e.id === a.dataset.id); if (!x) return;
+    const m = a.dataset.mode;
+    if (m === 'win') x.R = x.rr;
+    else if (m === 'loss') x.R = -1;
+    else if (m === 'be') x.R = 0;
+    else if (m === 'open') x.R = null;
+    else if (m === 'custom') {
+      const v = parseFloat(document.getElementById('customR').value);
+      if (isNaN(v)) return;
+      x.R = v;
+    }
+    x.result = x.R == null ? 'open' : x.R > 0 ? 'win' : x.R < 0 ? 'loss' : 'be';
+    saveAll(); return render();
+  }
+});
+
+document.addEventListener('change', e => {
+  const t = e.target;
+  if (t.matches('input[type="checkbox"][data-smallok]')) return;
+  if (t.matches('[data-sf]')) { S.stat[t.dataset.sf] = t.type === 'checkbox' ? t.checked : t.value; return render(); }
+  if (t.matches('[data-ctext]')) { S.pre.custom = S.pre.custom || {}; S.pre.custom[t.dataset.ctext] = t.value; return render(); }
+  if (t.matches('[data-ql]')) { SET.qLabels[t.dataset.ql] = t.value.trim() || DEFAULT_LABELS[t.dataset.ql]; saveAll(); return render(); }
+  if (t.matches('[data-rn]')) { SET.riskRules[+t.dataset.rn].name = t.value; saveAll(); return render(); }
+  if (t.matches('[data-rk]')) {
+    const c = SET.riskRules[+t.dataset.ri].when[+t.dataset.ci];
+    if (t.dataset.rk === 'field') { c.field = t.value; c.value = RISK_FIELDS[t.value].opts[0][0]; }
+    else c[t.dataset.rk] = t.value;
+    saveAll(); return render();
+  }
+  if (t.matches('[data-rm]')) { SET.riskRules[+t.dataset.ri][t.dataset.rm] = parseFloat(t.value) || 0; saveAll(); return render(); }
+  if (t.matches('[data-bal]')) { S.dr.post.balances = S.dr.post.balances || {}; const v = parseFloat(t.value); if (isNaN(v)) delete S.dr.post.balances[t.dataset.bal]; else S.dr.post.balances[t.dataset.bal] = v; return render(); }
+  if (t.matches('[data-optlabel]')) { const [k, v] = t.dataset.optlabel.split('|'); SET.optLabels[k] = SET.optLabels[k] || {}; SET.optLabels[k][v] = t.value.trim() || ((OPT_TXT[k] || []).find(x => x[0] === v) || [0, v])[1]; saveAll(); return render(); }
+  if (t.matches('[data-qopts]')) { SET.custom[+t.dataset.qopts].options = t.value.split('\n').map(x => x.trim()).filter(Boolean); saveAll(); return render(); }
+  if (t.matches('input[type="checkbox"][data-rule]')) {
+    const tr = LOG.find(x => x.id === S.tid); if (!tr) return;
+    tr.rulesChecked = tr.rulesChecked || []; tr.rulesChecked[+t.dataset.rule] = t.checked; saveAll(); return render();
+  }
+  if (t.matches('[data-pt]')) { S.pre[t.dataset.pt] = t.value; S.msg = ''; return render(); }
+  if (t.matches('[data-psel]')) { S.pre[t.dataset.psel] = t.value; return render(); }
+  if (t.matches('[data-pick]')) {
+    if (t.dataset.pick === 'during') S.tid = t.value;
+    else { S.ptid = t.value; loadPost(); }
+    S.msg = ''; return render();
+  }
+  if (t.matches('[data-sc][data-dt]')) { S.dr[t.dataset.sc][t.dataset.dt] = t.value; return render(); }
+  if (t.matches('[data-sc][data-dtx]')) { S.dr[t.dataset.sc][t.dataset.dtx] = t.value; return render(); }
+  if (t.matches('[data-sc][data-dn]')) { const v = parseFloat(t.value); S.dr[t.dataset.sc][t.dataset.dn] = isNaN(v) ? undefined : v; return render(); }
+  if (t.matches('[data-lines]')) {
+    const lines = t.value.split('\n').map(x => x.trim()).filter(Boolean);
+    if (t.dataset.lines === 'rules') SET.rules = lines; else SET.newsList = lines;
+    saveAll(); return render();
+  }
+  if (t.matches('[data-p]')) {
+    const path = t.dataset.p;
+    let v = t.type === 'checkbox' ? t.checked : t.value;
+    if (t.dataset.t === 'n') v = parseFloat(v) || 0;
+    if (/\.share$/.test(path)) v = clampShare(v);
+    setPath(path, v);
+    if (t.dataset.field) {
+      const parts = path.split('.'); const c = SET.grading[parts[1]][+parts[2]];
+      c.pass = [];
+    }
+    saveAll(); return render();
+  }
+});
+
+document.addEventListener('input', e => {
+  if (e.target.matches('[data-plan]')) {
+    S.plan[e.target.dataset.plan] = e.target.value;
+    const rd = readiness(); renderVerdict(rd); renderActive(rd); renderGauge(rd); renderWeekPanel(rd);
+    const sz = document.getElementById('sizing');
+    if (sz) { const keep = e.target.id; renderSizing(rd); const el = document.getElementById(keep); if (el) { el.focus(); el.setSelectionRange(el.value.length, el.value.length); } }
+  }
+});
+
+document.addEventListener('dragstart', e => {
+  const h = e.target.closest && e.target.closest('[data-qdrag]'); if (!h) return;
+  dragKey = h.dataset.qdrag;
+  try { e.dataTransfer.effectAllowed = 'move'; e.dataTransfer.setData('text/plain', dragKey); } catch (err) {}
+});
+document.addEventListener('dragover', e => {
+  if (!dragKey) return;
+  const row = e.target.closest && e.target.closest('[data-qdrop]'); if (!row) return;
+  e.preventDefault();
+});
+document.addEventListener('drop', e => {
+  if (!dragKey) return;
+  const row = e.target.closest && e.target.closest('[data-qdrop]'); if (!row) return;
+  e.preventDefault();
+  const to = row.dataset.qdrop;
+  if (to !== dragKey) {
+    const ord = orderedKeys().filter(k => k !== dragKey);
+    const idx = ord.indexOf(to);
+    const after = e.clientY > row.getBoundingClientRect().top + row.getBoundingClientRect().height / 2;
+    ord.splice(idx + (after ? 1 : 0), 0, dragKey);
+    SET.qOrder = ord; saveAll(); dragKey = null; return render();
+  }
+  dragKey = null;
+});
+document.addEventListener('dragend', () => { dragKey = null; });
+setInterval(renderNews, 30000);
+render();
+</script>
+</body>
+</html>
