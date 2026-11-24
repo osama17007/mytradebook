@@ -419,6 +419,7 @@ onAuthStateChanged(auth, async user => {
       CLOUD_READY = true;
       localStorage.removeItem(KS); localStorage.removeItem(KL);
       setSync('Synced from cloud');
+      pushNews();
     } else {
       CLOUD_READY = true;
       setSync('No cloud data yet, uploading');
@@ -549,7 +550,7 @@ function sampleLog(){
 }
 function loadLog(){ try { const v = localStorage.getItem(KL); if (v) return JSON.parse(v); } catch(e) {} return sampleLog(); }
 // Firestore is the only store. localStorage is read once only as a migration source for old data.
-function saveAll(){ cloudPush(); }
+function saveAll(){ cloudPush(); pushNews(); }
 
 let SET = loadSet();
 let LOG = loadLog();
@@ -1118,6 +1119,19 @@ function sendNewsEmail(e, day){
     if (!r.ok) throw new Error('status ' + r.status);
     SET.newsSent.push(key); cloudPush();
   }).catch(err => setSync('News email failed: ' + err.message));
+}
+
+// Google Apps Script web app that sends the news alert emails (see apps-script/Code.gs).
+const NEWS_SCRIPT = { url: 'https://script.google.com/macros/s/AKfycbz1TKrhgR8odjy9Y0-BzkpX4P0xwI9TfLHzNI3IUkvZQwXPBnup5y93aLrsqhMu1QBmew/exec', token: 'mytradebook-9f3k2x8q7wxytuikm' };
+let newsPushTimer = null;
+// Sends the current news calendar to the script so it can send alerts while the site is closed.
+function pushNews(){
+  if (NEWS_SCRIPT.url.startsWith('PASTE_')) return;
+  clearTimeout(newsPushTimer);
+  newsPushTimer = setTimeout(() => {
+    fetch(NEWS_SCRIPT.url, { method: 'POST', mode: 'no-cors',
+      body: JSON.stringify({ token: NEWS_SCRIPT.token, newsCal: SET.newsCal }) }).catch(() => {});
+  }, 1000);
 }
 
 function beep(){
