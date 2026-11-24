@@ -205,9 +205,20 @@ input.inline[type=date]{padding-right:44px}
 .qcard.drop-over{box-shadow:inset 0 0 0 2px var(--accent)}
 .cond{display:grid;grid-template-columns:64px minmax(0,1fr) auto minmax(0,1.2fr) auto;gap:10px;align-items:center;margin-bottom:10px}
 .cond .msg{text-align:center}
+#loginGate{position:fixed;inset:0;background:rgba(238,240,247,.94);display:grid;place-items:center;z-index:100;padding:20px}
+.login-card{background:#fff;border-radius:var(--radius);padding:32px;width:min(420px,100%);display:grid;gap:16px;box-shadow:0 10px 40px rgba(30,27,58,.12)}
 </style>
 </head>
 <body>
+<div id="loginGate" class="hidden">
+  <div class="login-card">
+    <div><p class="label" style="margin-bottom:6px">Trade Gate</p><h2 style="margin:0;font-size:26px;font-weight:600;letter-spacing:-.02em">Sign in</h2></div>
+    <p class="msg">We'll email you a sign-in link. Open it on this device to continue.</p>
+    <input class="inline" id="loginEmail" type="email" autocomplete="email" placeholder="you@example.com">
+    <button type="button" class="btn green" id="loginSend">Send sign-in link</button>
+    <p class="msg" id="loginMsg"></p>
+  </div>
+</div>
 <div class="app" id="app">
   <aside class="rail" id="rail" aria-label="Main">
     <div class="rail-top">
@@ -232,6 +243,7 @@ input.inline[type=date]{padding-right:44px}
   <main>
     <header class="topbar">
       <div class="crumb"><span>Trade Gate</span><span>›</span><b id="crumbCur">Checklist</b></div>
+      <span class="msg" id="syncStatus"></span>
       <span class="counter" id="counter"></span>
     </header>
 
@@ -306,7 +318,111 @@ input.inline[type=date]{padding-right:44px}
   </main>
 </div>
 
-<script>
+<script type="module">
+import { initializeApp } from "https://www.gstatic.com/firebasejs/13.4.0/firebase-app.js";
+import { getAuth, sendSignInLinkToEmail, isSignInWithEmailLink, signInWithEmailLink, onAuthStateChanged, signOut } from "https://www.gstatic.com/firebasejs/13.4.0/firebase-auth.js";
+import { getFirestore, doc, getDoc, setDoc } from "https://www.gstatic.com/firebasejs/13.4.0/firebase-firestore.js";
+
+const firebaseConfig = {
+  apiKey: "AIzaSyD4rLa6Jhkeb2pFWesHi9ber-zsEEy0bec",
+  authDomain: "mytradebook-692be.firebaseapp.com",
+  projectId: "mytradebook-692be",
+  storageBucket: "mytradebook-692be.firebasestorage.app",
+  messagingSenderId: "594657205999",
+  appId: "1:594657205999:web:24955c840609db89e8c51a"
+};
+
+const fbApp = initializeApp(firebaseConfig);
+const auth = getAuth(fbApp);
+const db = getFirestore(fbApp);
+const EMAIL_KEY = 'tg-login-email';
+let USER = null, pushTimer = null;
+
+const dataRef = uid => doc(db, 'users', uid, 'data', 'app');
+function setSync(m){ const el = document.getElementById('syncStatus'); if (el) el.textContent = m; }
+function showGate(show){ const g = document.getElementById('loginGate'); if (g) g.classList.toggle('hidden', !show); }
+function loginMsg(m){ const el = document.getElementById('loginMsg'); if (el) el.textContent = m; }
+
+// Same settings shape as loadSet(), for data that comes from the cloud.
+function normalizeSet(raw){
+  const s = Object.assign(DEF_SET(), raw);
+  s.accounts = (s.accounts || []).map(a => Object.assign({days:DAYS.slice(), share:100, risk:1, week:0}, a));
+  s.custom = (s.custom || []).map(c => Object.assign({type:'radio', options:['yes','no'], req:true}, c));
+  s.qLabels = s.qLabels || {};
+  s.optLabels = s.optLabels || {};
+  s.qOrder = s.qOrder || [];
+  if (!WEEKS.includes(s.activeWeek)) s.activeWeek = defaultWeek();
+  return s;
+}
+
+// Called by saveAll(). Waits briefly so rapid edits become one write.
+function cloudPush(){
+  if (!USER) return;
+  clearTimeout(pushTimer);
+  setSync('Saving…');
+  pushTimer = setTimeout(async () => {
+    try {
+      const payload = JSON.parse(JSON.stringify({settings: SET, log: LOG, updatedAt: new Date().toISOString()}));
+      await setDoc(dataRef(USER.uid), payload);
+      setSync('Saved to cloud · ' + new Date().toLocaleTimeString([], {hour:'2-digit', minute:'2-digit'}));
+    } catch (e) { setSync('Cloud save failed: ' + e.message); }
+  }, 800);
+}
+
+async function sendLink(){
+  const email = (document.getElementById('loginEmail').value || '').trim().toLowerCase();
+  if (isSignInWithEmailLink(auth, location.href)) {
+    if (!email) return loginMsg('Enter the email you used to request the link.');
+    try {
+      await signInWithEmailLink(auth, email, location.href);
+      localStorage.removeItem(EMAIL_KEY);
+      history.replaceState(null, '', location.pathname);
+    } catch (e) { loginMsg(e.message); }
+    return;
+  }
+  if (!email) return loginMsg('Enter your email.');
+  try {
+    await sendSignInLinkToEmail(auth, email, { url: location.href.split(/[?#]/)[0], handleCodeInApp: true });
+    localStorage.setItem(EMAIL_KEY, email);
+    loginMsg('Sign-in link sent to ' + email + '. Open it on this device.');
+  } catch (e) { loginMsg(e.message); }
+}
+
+// Opened from the email link: finish sign-in automatically when the address is already remembered.
+(async () => {
+  if (!isSignInWithEmailLink(auth, location.href)) return;
+  const email = localStorage.getItem(EMAIL_KEY);
+  if (!email) return loginMsg('Enter the email you used, then press Finish sign-in.');
+  try {
+    await signInWithEmailLink(auth, email, location.href);
+    localStorage.removeItem(EMAIL_KEY);
+    history.replaceState(null, '', location.pathname);
+  } catch (e) { loginMsg(e.message); }
+})();
+
+const le = document.getElementById('loginEmail');
+if (le) le.value = localStorage.getItem(EMAIL_KEY) || '';
+
+onAuthStateChanged(auth, async user => {
+  USER = user;
+  if (!user) { showGate(true); setSync(''); return; }
+  showGate(false);
+  setSync('Loading from cloud…');
+  try {
+    const snap = await getDoc(dataRef(user.uid));
+    if (snap.exists() && snap.data().settings) {
+      const d = snap.data();
+      SET = normalizeSet(d.settings);
+      LOG = Array.isArray(d.log) ? d.log : [];
+      saveLocal();
+      setSync('Synced from cloud');
+    } else {
+      setSync('No cloud data yet, uploading');
+      cloudPush();
+    }
+  } catch (e) { setSync('Cloud load failed: ' + e.message); }
+  render();
+});
 const KL = 'trade-gate-v1', KS = 'trade-gate-settings-v1';
 const DAYS = ['Mon','Tue','Wed','Thu','Fri','Sat','Sun'];
 const WEEKS = [1,2,3,4,5];
@@ -428,7 +544,8 @@ function sampleLog(){
   ];
 }
 function loadLog(){ try { const v = localStorage.getItem(KL); if (v) return JSON.parse(v); } catch(e) {} return sampleLog(); }
-function saveAll(){ try { localStorage.setItem(KS, JSON.stringify(SET)); localStorage.setItem(KL, JSON.stringify(LOG)); } catch(e) {} }
+function saveLocal(){ try { localStorage.setItem(KS, JSON.stringify(SET)); localStorage.setItem(KL, JSON.stringify(LOG)); } catch(e) {} }
+function saveAll(){ saveLocal(); cloudPush(); }
 
 let SET = loadSet();
 let LOG = loadLog();
@@ -1421,7 +1538,7 @@ function profileSection(){
       return `<div class="card"><div class="profile-head"><span class="av">${esc(initials)}</span>
         <div><div style="font-size:20px;font-weight:600">${esc(SET.profile.name || 'Your name')}</div><p class="msg">${esc(SET.profile.email || 'No email set')}</p></div></div></div>` +
         card('Your details', `<div class="g2">${txt('profile.name', 'Name', SET.profile.name)}${txt('profile.email', 'Email', SET.profile.email)}</div>
-        <p class="msg" style="margin-top:14px">Saved in this browser only. Sign-in is not connected yet.</p>`);
+        <p class="msg" style="margin-top:14px">Signed in with your email. Data syncs to the cloud and is also cached in this browser.</p><div class="btns"><button type="button" class="btn light sm" data-pact="signOut">Sign out</button></div>`);
     }
     case 'accounts':
       return `<div class="card"><div class="acct-head-top" style="margin-bottom:6px"><p class="label" style="font-size:15px;color:var(--ink);font-weight:600">Propfirm accounts</p><button type="button" class="btn sm" data-pact="addAcc">Add account</button></div>
@@ -1518,6 +1635,7 @@ function showTab(t){
 }
 
 document.addEventListener('click', e => {
+  if (e.target.closest('#loginSend')) return sendLink();
   if (e.target.closest('#railToggle')) { S.railOpen = !S.railOpen; return render(); }
   const tab = e.target.closest('[data-tab]');
   if (tab) return showTab(tab.dataset.tab);
@@ -1620,6 +1738,7 @@ document.addEventListener('click', e => {
   const pact = e.target.closest('[data-pact]');
   if (pact) {
     const a = pact.dataset.pact;
+    if (a === 'signOut') return signOut(auth);
     if (a === 'addAcc') { const na = {id:uid(), firm:'', number:'', label:'', type:'2-step', state:'Evaluation', size:100000, balance:100000, commission:4, newsAllowed:false, maxDailyLoss:5, maxDD:10, target:10, share:100, risk:1, week:0, days:DAYS.slice(), rules:''}; SET.accounts.push(na); S.accOpen[na.id] = true; }
     if (a === 'delAcc') { SET.accounts.splice(+pact.dataset.i, 1); }
     if (a === 'addCrit') SET.grading[pact.dataset.g].push({id:uid(), label:'New item', field:'liq', pass:['yes']});
