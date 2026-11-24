@@ -358,7 +358,7 @@ function loginMsg(m){ const el = document.getElementById('loginMsg'); if (el) el
 // Same settings shape as loadSet(), for data that comes from the cloud.
 function normalizeSet(raw){
   const s = Object.assign(DEF_SET(), raw);
-  s.accounts = (s.accounts || []).map(a => Object.assign({days:DAYS.slice(), share:100, risk:1, week:0}, a));
+  s.accounts = (s.accounts || []).map(a => { const x = Object.assign({days:DAYS.slice(), share:100, risk:1}, a); if (!Array.isArray(x.weeks)) x.weeks = x.week ? [x.week] : []; delete x.week; return x; });
   s.custom = (s.custom || []).map(c => Object.assign({type:'radio', options:['yes','no'], req:true}, c));
   s.qLabels = s.qLabels || {};
   s.optLabels = s.optLabels || {};
@@ -493,7 +493,7 @@ const PSECS = [['profile','Profile'],['accounts','Propfirm accounts'],['plan','W
 const defaultWeek = () => Math.min(5, Math.ceil(new Date().getDate() / 7));
 const DEF_SET = () => ({
   profile:{name:'',email:''},
-  accounts:[{id:'a1',firm:'Example Prop',number:'ACC-001',label:'2-step 100K',type:'2-step',state:'Evaluation',size:100000,balance:100000,commission:4,newsAllowed:false,maxDailyLoss:5,maxDD:10,target:10,share:100,risk:1,week:1,days:DAYS.slice(),rules:'Sample account. Replace with your real details.'}],
+  accounts:[{id:'a1',firm:'Example Prop',number:'ACC-001',label:'2-step 100K',type:'2-step',state:'Evaluation',size:100000,balance:100000,commission:4,newsAllowed:false,maxDailyLoss:5,maxDD:10,target:10,share:100,risk:1,weeks:[1],days:DAYS.slice(),rules:'Sample account. Replace with your real details.'}],
   grading:{
     A:[
       {id:'A1',label:'HTF bias clear and Daily and 4H the same',field:'htfSame',pass:['same']},
@@ -538,7 +538,7 @@ function loadSet(){
     const v = localStorage.getItem(KS);
     if (v) {
       const s = Object.assign(DEF_SET(), JSON.parse(v));
-      s.accounts = (s.accounts || []).map(a => Object.assign({days:DAYS.slice(), share:100, risk:1, week:0}, a));
+      s.accounts = (s.accounts || []).map(a => { const x = Object.assign({days:DAYS.slice(), share:100, risk:1}, a); if (!Array.isArray(x.weeks)) x.weeks = x.week ? [x.week] : []; delete x.week; return x; });
       // Older yes/no items become single-choice questions with yes/no options.
       s.custom = (s.custom || []).map(c => Object.assign({type:'radio', options:['yes','no'], req:true}, c));
       s.qLabels = s.qLabels || {};
@@ -587,6 +587,11 @@ const ymd = () => new Date().toLocaleDateString('en-CA');
 const uid = () => Date.now().toString(36) + Math.random().toString(36).slice(2,7);
 const clampShare = s => Math.min(100, Math.max(1, +s || 100));
 const weekLabel = w => w ? 'Week ' + w : 'Unassigned';
+// An account can trade in several weeks: a.weeks is a list such as [1, 4].
+const acctWeeks = a => Array.isArray(a.weeks) ? a.weeks : [];
+const inWeek = (a, w) => acctWeeks(a).includes(w);
+const weekText = a => acctWeeks(a).length ? acctWeeks(a).map(w => 'W' + w).join(' · ') : '—';
+const weekNames = a => acctWeeks(a).length ? acctWeeks(a).map(w => 'Week ' + w).join(', ') : 'Unassigned';
 const qLabel = k => (SET.qLabels || {})[k] || DEFAULT_LABELS[k];
 function when(ts){ return new Date(ts).toLocaleString([], {month:'short', day:'numeric', hour:'2-digit', minute:'2-digit'}); }
 function todayTrades(){ return LOG.filter(x => x.action === 'trade' && new Date(x.ts).toDateString() === dayKey()).length; }
@@ -759,7 +764,7 @@ function activeAccounts(){
   const grade = gradeOf(S.pre).grade;
   const newsHit = S.pre.newsCur === 'high' || S.pre.newsNext === 'high';
   const day = todayDay();
-  return SET.accounts.filter(a => a.week === SET.activeWeek).map(a => {
+  return SET.accounts.filter(a => inWeek(a, SET.activeWeek)).map(a => {
     const risk = +a.risk || 0;
     const capital = acctStats(a).cur * clampShare(a.share) / 100;
     const riskUsd = capital * risk / 100;
@@ -1383,7 +1388,7 @@ function renderBalance(){
   const list = SET.accounts.filter(a =>
     (f.size === 'all' || +a.size === +f.size) &&
     (f.stage === 'all' || a.type === f.stage) &&
-    (f.week === 'all' || String(a.week || 0) === f.week));
+    (f.week === 'all' || (f.week === '0' ? !acctWeeks(a).length : inWeek(a, +f.week))));
   const series = list.map((a, i) => ({a, pts: balanceSeries(a, from, to), color: PALETTE[i % PALETTE.length]}));
   const sel = (key, opts, cur) => `<label class="field"><span class="label">${key.label}</span><select class="inline" data-sf="${key.k}">${opts.map(([v, l]) => `<option value="${esc(v)}" ${String(cur) === String(v) ? 'selected' : ''}>${esc(l)}</option>`).join('')}</select></label>`;
   const controls = `<div class="filter-grid">
@@ -1423,7 +1428,7 @@ function renderBalance(){
     const legend = series.map(s => {
       const last = s.pts[s.pts.length - 1].v, d = last - s.pts[0].v;
       return `<div class="legend-item"><span class="dot" style="background:${s.color}"></span>
-        <div><div style="font-weight:600">${esc(s.a.firm)} · ${esc(s.a.label || '')}</div><div class="msg">${esc(s.a.type)} · ${money(+s.a.size)} · ${s.a.week ? 'Week ' + s.a.week : 'Unassigned'}</div></div>
+        <div><div style="font-weight:600">${esc(s.a.firm)} · ${esc(s.a.label || '')}</div><div class="msg">${esc(s.a.type)} · ${money(+s.a.size)} · ${weekNames(s.a)}</div></div>
         <div style="text-align:right"><div class="val">${money(last)}</div><div class="msg ${d < 0 ? 'neg' : d > 0 ? 'pos' : ''}">${money(d)}</div></div></div>`;
     }).join('');
     const now = series.reduce((s, x) => s + x.pts[x.pts.length - 1].v, 0), start = series.reduce((s, x) => s + x.pts[0].v, 0);
@@ -1456,11 +1461,11 @@ function acctCard(a, i){
       <div><div style="font-weight:600">${esc(a.firm || 'Firm')} · ${esc(a.label || '')}</div><div class="msg">${esc(a.number || '')} · ${esc(a.type)}</div></div>
       <div><div class="k">Balance</div><div class="v">${money(st.cur)}</div></div>
       <div><div class="k">Today</div><div class="v ${pnlCls}">${money(st.todayPnl)}</div></div>
-      <div><div class="k">Risk / week</div><div class="v">${a.risk}% · ${a.week ? 'W' + a.week : '—'}</div></div>
+      <div><div class="k">Risk / week</div><div class="v">${a.risk}% · ${weekText(a)}</div></div>
       <span class="chev"><svg viewBox="0 0 24 24"><path d="M6 9l6 6 6-6"/></svg></span>
     </button>
     ${isOpen ? `<div class="acct-body">
-      <div class="section-head" style="margin-top:16px"><span class="chip">${esc(a.state)}</span><span class="chip acc">${a.share}% of account</span><span class="chip">${esc(daysLbl)}</span><span class="chip">${weekLabel(a.week)}</span></div>
+      <div class="section-head" style="margin-top:16px"><span class="chip">${esc(a.state)}</span><span class="chip acc">${a.share}% of account</span><span class="chip">${esc(daysLbl)}</span><span class="chip">${weekNames(a)}</span></div>
       <p class="sect-label">Objectives</p>
       <div class="ob-grid">
         <div class="ob"><div class="ob-top"><span>Max daily loss</span><span>${money(dayRem)} left</span></div>${bar(dayLoss, dayLimit)}<p class="msg">Limit ${money(dayLimit)} · lost today ${money(dayLoss)}</p></div>
@@ -1507,21 +1512,21 @@ function acctCard(a, i){
 
 function weekPlanSection(){
   const tiles = WEEKS.map(w => {
-    const accs = SET.accounts.filter(a => a.week === w);
+    const accs = SET.accounts.filter(a => inWeek(a, w));
     const risk = sum(accs.map(a => +a.risk || 0));
     return `<div class="wk-tile ${w === SET.activeWeek ? 'on' : ''}"><div class="k">Week ${w}${w === SET.activeWeek ? ' · active' : ''}</div>
       <div class="v">${accs.length} acct${accs.length === 1 ? '' : 's'}</div><div class="msg">${risk.toFixed(2)}% total risk</div></div>`;
   }).join('');
-  const unassigned = SET.accounts.filter(a => !a.week).length;
+  const unassigned = SET.accounts.filter(a => !acctWeeks(a).length).length;
   const rows = SET.accounts.map(a => `<div class="planrow">
       <div style="min-width:200px"><div style="font-weight:600">${esc(a.firm || 'Firm')} · ${esc(a.label || '')}</div>
         <div class="msg">${esc(a.number || '')} · ${esc(a.state)} · risk ${a.risk}% · ${(a.days || []).length === 7 ? 'every day' : esc((a.days || []).join(' · ')) || 'no days'}</div></div>
       <div class="seg compact" role="group" aria-label="Week for ${esc(a.firm)}">
-        ${WEEKS.map(w => `<button type="button" data-wk="${a.id}" data-wkv="${w}" aria-pressed="${a.week === w}">Week ${w}</button>`).join('')}
-        <button type="button" data-wk="${a.id}" data-wkv="0" aria-pressed="${!a.week}">None</button>
+        ${WEEKS.map(w => `<button type="button" data-wk="${a.id}" data-wkv="${w}" aria-pressed="${inWeek(a, w)}">Week ${w}</button>`).join('')}
+        <button type="button" data-wk="${a.id}" data-wkv="0" aria-pressed="${!acctWeeks(a).length}">None</button>
       </div></div>`).join('') || '<p class="msg">Add an account first.</p>';
   return `<div class="card"><p class="label" style="font-size:15px;color:var(--ink);font-weight:600;margin-bottom:6px">Week plan</p>
-      <p class="msg" style="margin-bottom:16px">Put each account in the week you trade it. The checklist shows the active week's accounts on the right, with their risk % and lot size.</p>
+      <p class="msg" style="margin-bottom:16px">Pick every week an account trades. Click a week to add or remove it. The checklist shows the active week's accounts on the right, with their risk % and lot size.</p>
       <div class="g5">${tiles}</div>
       ${unassigned ? `<p class="msg" style="margin-top:12px">${unassigned} account(s) not assigned to a week yet.</p>` : ''}</div>
     <div class="card"><p class="label" style="font-size:15px;color:var(--ink);font-weight:600;margin-bottom:4px">Assign accounts</p>${rows}</div>`;
@@ -1669,7 +1674,10 @@ function accountsSection(){
   const bulk = selCount ? `<div class="acc-bulk"><b>${selCount} selected</b>
     <label class="inline-lbl">Risk % <input class="inline" type="number" step="0.05" id="bulkRisk"></label>
     <label class="inline-lbl">Share % <input class="inline" type="number" min="1" max="100" id="bulkShare"></label>
-    <label class="inline-lbl">Week <select class="inline" id="bulkWeek"><option value="">No change</option><option value="0">None</option>${WEEKS.map(w => `<option value="${w}">W${w}</option>`).join('')}</select></label>
+    <span class="inline-lbl">Weeks ${WEEKS.map(w => `<label><input type="checkbox" id="bw${w}"> W${w}</label>`).join('')}</span>
+    <button type="button" class="btn light sm" data-pact="bulkWeekAdd">Add weeks</button>
+    <button type="button" class="btn light sm" data-pact="bulkWeekRemove">Remove weeks</button>
+    <button type="button" class="btn light sm" data-pact="bulkWeekClear">Clear weeks</button>
     <button type="button" class="btn sm" data-pact="bulkApply">Apply to selected</button>
     <button type="button" class="btn light sm" data-pact="bulkClear">Clear selection</button></div>` : '';
   const empty = SET.accounts.length ? 'No accounts match these filters.' : 'No accounts yet.';
@@ -1705,7 +1713,8 @@ function accAddModal(){
       ${inp('commission', 'Commission per lot ($)', 4, 'number', 'step="0.01"')}
       ${inp('share', 'Share of account traded (%)', 100, 'number', 'min="1" max="100"')}
       ${inp('risk', 'Risk per trade (%)', 1, 'number', 'step="0.05"')}
-      ${sl('week', 'Week', [['0', 'None']].concat(WEEKS.map(w => [String(w), 'W' + w])), '0')}
+      <div class="field" style="grid-column:1/-1"><span class="label">Weeks (tick every week it trades, or none)</span>
+        <div style="display:flex;gap:16px;flex-wrap:wrap">${WEEKS.map(w => `<label class="inline-lbl"><input type="checkbox" id="na-w${w}"> Week ${w}</label>`).join('')}</div></div>
       ${inp('maxDailyLoss', 'Max daily loss (%)', 5, 'number', 'step="0.1"')}
       ${inp('maxDD', 'Max drawdown (%)', 10, 'number', 'step="0.1"')}
       ${inp('target', 'Profit target (%)', 10, 'number', 'step="0.1"')}
@@ -1776,7 +1785,7 @@ document.addEventListener('click', e => {
   const wk = e.target.closest('[data-wk]');
   if (wk) {
     const a = SET.accounts.find(x => x.id === wk.dataset.wk);
-    if (a) { a.week = +wk.dataset.wkv; saveAll(); }
+    if (a) { const w = +wk.dataset.wkv; const cur = acctWeeks(a); a.weeks = w === 0 ? [] : (cur.includes(w) ? cur.filter(x => x !== w) : [...cur, w].sort((p, q) => p - q)); saveAll(); }
     return render();
   }
   const cp = e.target.closest('[data-calcpair]');
@@ -1881,19 +1890,29 @@ document.addEventListener('click', e => {
       const na = {id:uid(), firm, number:v('number'), label:v('label'), type:v('type'), state:v('state'),
         size:n('size'), balance:n('balance'), commission:n('commission') || 0, newsAllowed:false,
         maxDailyLoss:n('maxDailyLoss') || 0, maxDD:n('maxDD') || 0, target:n('target') || 0,
-        share:Math.min(100, Math.max(1, n('share') || 100)), risk:n('risk') || 0, week:+v('week') || 0,
+        share:Math.min(100, Math.max(1, n('share') || 100)), risk:n('risk') || 0, weeks:WEEKS.filter(w => document.getElementById('na-w' + w).checked),
         days:DAYS.slice(), rules:''};
       SET.accounts.push(na); S.accAdd = null; S.accOpen[na.id] = true;
     }
     if (a === 'clearFilters') { S.accFilter = {firm:'all', size:'all', type:'all'}; return render(); }
     if (a === 'bulkClear') { S.accSel = {}; return render(); }
     if (a === 'bulkApply') {
-      const r = document.getElementById('bulkRisk').value, sh = document.getElementById('bulkShare').value, w = document.getElementById('bulkWeek').value;
+      const r = document.getElementById('bulkRisk').value, sh = document.getElementById('bulkShare').value;
       SET.accounts.forEach(x => {
         if (!S.accSel[x.id]) return;
         if (r !== '' && !isNaN(+r)) x.risk = +r;
         if (sh !== '' && !isNaN(+sh)) x.share = Math.min(100, Math.max(1, +sh));
-        if (w !== '') x.week = +w;
+      });
+    }
+    if (a === 'bulkWeekAdd' || a === 'bulkWeekRemove' || a === 'bulkWeekClear') {
+      const picked = WEEKS.filter(w => document.getElementById('bw' + w).checked);
+      SET.accounts.forEach(x => {
+        if (!S.accSel[x.id]) return;
+        let ws = acctWeeks(x);
+        if (a === 'bulkWeekClear') ws = [];
+        else if (a === 'bulkWeekAdd') ws = [...new Set([...ws, ...picked])];
+        else ws = ws.filter(w => !picked.includes(w));
+        x.weeks = ws.sort((p, q) => p - q);
       });
     }
     if (a === 'delAcc') { SET.accounts.splice(+pact.dataset.i, 1); }
