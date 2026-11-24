@@ -361,6 +361,7 @@ function normalizeSet(raw){
   s.accounts = (s.accounts || []).map(a => { const x = Object.assign({days:DAYS.slice(), share:100, risk:1}, a); if (!Array.isArray(x.weeks)) x.weeks = x.week ? [x.week] : []; delete x.week; return x; });
   s.custom = (s.custom || []).map(c => Object.assign({type:'radio', options:['yes','no'], req:true}, c));
   s.qLabels = s.qLabels || {};
+  migrateSettings(s);
   s.optLabels = s.optLabels || {};
   s.qOrder = s.qOrder || [];
   if (!WEEKS.includes(s.activeWeek)) s.activeWeek = defaultWeek();
@@ -542,6 +543,7 @@ function loadSet(){
       // Older yes/no items become single-choice questions with yes/no options.
       s.custom = (s.custom || []).map(c => Object.assign({type:'radio', options:['yes','no'], req:true}, c));
       s.qLabels = s.qLabels || {};
+      migrateSettings(s);
       s.optLabels = s.optLabels || {};
       s.qOrder = s.qOrder || [];
       if (!WEEKS.includes(s.activeWeek)) s.activeWeek = defaultWeek();
@@ -751,6 +753,17 @@ function ruleMatches(r, ctx){
   for (let i = 1; i < r.when.length; i++) { const c = r.when[i]; res = c.join === 'or' ? (res || hit(c)) : (res && hit(c)); }
   return res;
 }
+// One-time settings upgrade. rulesVersion 2: B setups are not allowed on funded / instant funded accounts.
+function migrateSettings(s){
+  if ((s.rulesVersion || 0) >= 2) return s;
+  (s.riskRules || []).forEach(r => {
+    if (r.allowed === undefined) r.allowed = true;
+    const when = r.when || [];
+    if (when.some(c => c.field === 'grade' && c.value === 'B') && when.some(c => c.field === 'stage' && c.value === 'funded')) r.allowed = false;
+  });
+  s.rulesVersion = 2;
+  return s;
+}
 function recommendFor(a, grade){
   if (grade !== 'A' && grade !== 'B') return null;
   const ctx = {grade, stage: FUNDED_TYPES.includes(a.type) ? 'funded' : 'eval'};
@@ -775,6 +788,7 @@ function activeAccounts(){
     else if (newsHit && !a.newsAllowed) { ok = false; msg = 'Skip: this account does not allow news'; }
     else if (!(risk > 0)) { ok = false; msg = 'Set a risk % for this account'; }
     else if (!rule) { ok = false; msg = grade ? 'No risk rule matches this account' : 'Grade the setup first'; }
+    else if (rule.allowed === false) { ok = false; msg = 'Blocked by risk rule: ' + rule.name; }
     else if (risk < rule.min - 1e-9 || risk > rule.max + 1e-9) { ok = false; msg = 'Risk ' + risk + '% is outside ' + recText({rule}) + ' recommended'; }
     if (pc.slPips > 0) {
       lots = Math.floor(riskUsd / (pc.slPips * PIP_VALUE_PER_LOT) * 100) / 100;
@@ -1565,6 +1579,10 @@ function riskSection(){
   const fieldOpts = (c) => Object.entries(RISK_FIELDS).map(([k, f]) => `<option value="${k}" ${c.field === k ? 'selected' : ''}>${esc(f.label)}</option>`).join('');
   const rules = SET.riskRules.map((r, ri) => `<div class="card sub" style="padding:18px;margin-bottom:14px">
       <div class="qtop"><input class="inline" style="flex:1" data-rn="${ri}" value="${esc(r.name)}"><button type="button" class="btn danger sm" data-pact="delRule" data-i="${ri}">Remove rule</button></div>
+      <div class="seg" style="margin-top:14px" role="group" aria-label="Trading allowed for this rule">
+        <button type="button" data-rallow="${ri}" data-v="yes" aria-pressed="${r.allowed !== false}">Allowed</button>
+        <button type="button" data-rallow="${ri}" data-v="no" aria-pressed="${r.allowed === false}">Not allowed</button>
+      </div>
       <div style="margin-top:16px">
         ${r.when.map((c, ci) => `<div class="cond">
           ${ci === 0 ? '<span class="msg">If</span>' : `<select class="inline" data-rk="join" data-ri="${ri}" data-ci="${ci}"><option value="and" ${c.join !== 'or' ? 'selected' : ''}>and</option><option value="or" ${c.join === 'or' ? 'selected' : ''}>or</option></select>`}
@@ -1580,7 +1598,7 @@ function riskSection(){
         <div class="field"><span class="label">Recommended risk, maximum (%)</span><input class="inline" type="number" step="0.05" data-rm="max" data-ri="${ri}" value="${r.max}"></div>
       </div></div>`).join('');
   return `<div class="card"><p class="label" style="font-size:15px;color:var(--ink);font-weight:600;margin-bottom:6px">Risk rules</p>
-    <p class="msg" style="margin-bottom:16px">Conditions are read left to right, joined by and / or. The first rule whose conditions all match sets each account's recommended risk. An account's risk % must fall inside that range before it can trade.</p>
+    <p class="msg" style="margin-bottom:16px">Conditions are read left to right, joined by and / or. The first rule whose conditions all match sets each account's recommended risk. An account's risk % must fall inside that range before it can trade. Set a rule to Not allowed to block matching accounts from trading entirely.</p>
     ${rules}
     <div class="btns"><button type="button" class="btn sm" data-pact="addRule">Add rule</button></div></div>`;
 }
@@ -1873,6 +1891,8 @@ document.addEventListener('click', e => {
     c.pass = c.pass.includes(v) ? c.pass.filter(x => x !== v) : c.pass.concat([v]);
     saveAll(); return render();
   }
+  const ra = e.target.closest('[data-rallow]');
+  if (ra) { SET.riskRules[+ra.dataset.rallow].allowed = ra.dataset.v === 'yes'; saveAll(); return render(); }
   const pact = e.target.closest('[data-pact]');
   if (pact) {
     const a = pact.dataset.pact;
