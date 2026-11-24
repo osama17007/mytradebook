@@ -211,8 +211,8 @@ input.inline[type=date]{padding-right:44px}
 .acc-tools{display:grid;grid-template-columns:repeat(auto-fit,minmax(170px,1fr));gap:12px;margin-bottom:12px}
 .acc-toolbar{display:flex;gap:12px;align-items:center;justify-content:space-between;flex-wrap:wrap;margin-bottom:12px}
 .acc-bulk{display:flex;gap:10px;align-items:center;flex-wrap:wrap;background:#F3F4FB;border-radius:14px;padding:12px 14px;margin-bottom:12px}
-.mini{font-size:13px;color:var(--muted);display:inline-flex;gap:6px;align-items:center}
-.mini input,.mini select{width:120px}
+.inline-lbl{font-size:13px;color:var(--muted);display:inline-flex;gap:8px;align-items:center;margin:0}
+.inline-lbl input,.inline-lbl select{width:120px}
 .acc-row{display:flex;gap:12px;align-items:flex-start}
 .acc-row>.card{flex:1;min-width:0}
 .acc-check{margin-top:30px;width:18px;height:18px;accent-color:var(--ink);flex:none}
@@ -1468,14 +1468,14 @@ function acctCard(a, i){
       </div>
       <p class="sect-label">Stats</p>
       <div class="g4">
-        <div class="mini"><div class="k">Current balance</div><div class="v">${money(st.cur)}</div></div>
-        <div class="mini"><div class="k">Realized P&amp;L</div><div class="v ${st.realized < 0 ? 'neg' : st.realized > 0 ? 'pos' : ''}">${money(st.realized)}</div></div>
-        <div class="mini"><div class="k">Win ratio</div><div class="v">${fmtPct(st.winRate)}</div></div>
-        <div class="mini"><div class="k">Profit factor</div><div class="v">${pfTxt}</div></div>
-        <div class="mini"><div class="k">Average win</div><div class="v pos">${money(st.avgWin)}</div></div>
-        <div class="mini"><div class="k">Average loss</div><div class="v neg">${money(-st.avgLoss)}</div></div>
-        <div class="mini"><div class="k">Trades taken</div><div class="v">${st.trades}</div></div>
-        <div class="mini"><div class="k">Closed trades</div><div class="v">${st.closedN}</div></div>
+        <div class="inline-lbl"><div class="k">Current balance</div><div class="v">${money(st.cur)}</div></div>
+        <div class="inline-lbl"><div class="k">Realized P&amp;L</div><div class="v ${st.realized < 0 ? 'neg' : st.realized > 0 ? 'pos' : ''}">${money(st.realized)}</div></div>
+        <div class="inline-lbl"><div class="k">Win ratio</div><div class="v">${fmtPct(st.winRate)}</div></div>
+        <div class="inline-lbl"><div class="k">Profit factor</div><div class="v">${pfTxt}</div></div>
+        <div class="inline-lbl"><div class="k">Average win</div><div class="v pos">${money(st.avgWin)}</div></div>
+        <div class="inline-lbl"><div class="k">Average loss</div><div class="v neg">${money(-st.avgLoss)}</div></div>
+        <div class="inline-lbl"><div class="k">Trades taken</div><div class="v">${st.trades}</div></div>
+        <div class="inline-lbl"><div class="k">Closed trades</div><div class="v">${st.closedN}</div></div>
       </div>
       <p class="sect-label">Settings</p>
       <div class="g3">
@@ -1666,9 +1666,9 @@ function accountsSection(){
     <label class="field"><span class="label">Sort by</span><select class="inline" data-accf="sort">${sorts.map(([v, l]) => opt(v, S.accSort, l)).join('')}</select></label>
   </div>`;
   const bulk = selCount ? `<div class="acc-bulk"><b>${selCount} selected</b>
-    <label class="mini">Risk % <input class="inline" type="number" step="0.05" id="bulkRisk"></label>
-    <label class="mini">Share % <input class="inline" type="number" min="1" max="100" id="bulkShare"></label>
-    <label class="mini">Week <select class="inline" id="bulkWeek"><option value="">No change</option><option value="0">None</option>${WEEKS.map(w => `<option value="${w}">W${w}</option>`).join('')}</select></label>
+    <label class="inline-lbl">Risk % <input class="inline" type="number" step="0.05" id="bulkRisk"></label>
+    <label class="inline-lbl">Share % <input class="inline" type="number" min="1" max="100" id="bulkShare"></label>
+    <label class="inline-lbl">Week <select class="inline" id="bulkWeek"><option value="">No change</option><option value="0">None</option>${WEEKS.map(w => `<option value="${w}">W${w}</option>`).join('')}</select></label>
     <button type="button" class="btn sm" data-pact="bulkApply">Apply to selected</button>
     <button type="button" class="btn light sm" data-pact="bulkClear">Clear selection</button></div>` : '';
   const empty = SET.accounts.length ? 'No accounts match these filters.' : 'No accounts yet.';
@@ -1678,7 +1678,7 @@ function accountsSection(){
       <button type="button" class="btn sm" data-pact="openAcc">Add account</button></div>
     <p class="msg" style="margin-bottom:16px">Click an account to expand its objectives, stats and settings. Week assignment is in Week plan.</p>
     ${filters}
-    <div class="acc-toolbar"><label class="mini"><input type="checkbox" data-accall="1" ${allShown ? 'checked' : ''}> Select all shown</label>
+    <div class="acc-toolbar"><label class="inline-lbl"><input type="checkbox" data-accall="1" ${allShown ? 'checked' : ''}> Select all shown</label>
       ${filtered ? '<button type="button" class="btn light sm" data-pact="clearFilters">Clear filters</button>' : ''}</div>
     ${bulk}
     ${shown.map(({a, i}) => `<div class="acc-row"><input type="checkbox" class="acc-check" data-accsel="${a.id}" ${sel[a.id] ? 'checked' : ''} aria-label="Select account">${acctCard(a, i)}</div>`).join('') || `<p class="msg">${empty}</p>`}
