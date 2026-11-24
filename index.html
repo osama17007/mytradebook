@@ -207,6 +207,17 @@ input.inline[type=date]{padding-right:44px}
 .cond .msg{text-align:center}
 #loginGate{position:fixed;inset:0;background:rgba(238,240,247,.94);display:grid;place-items:center;z-index:100;padding:20px}
 .login-card{background:#fff;border-radius:var(--radius);padding:32px;width:min(420px,100%);display:grid;gap:16px;box-shadow:0 10px 40px rgba(30,27,58,.12)}
+
+.acc-tools{display:grid;grid-template-columns:repeat(auto-fit,minmax(170px,1fr));gap:12px;margin-bottom:12px}
+.acc-toolbar{display:flex;gap:12px;align-items:center;justify-content:space-between;flex-wrap:wrap;margin-bottom:12px}
+.acc-bulk{display:flex;gap:10px;align-items:center;flex-wrap:wrap;background:#F3F4FB;border-radius:14px;padding:12px 14px;margin-bottom:12px}
+.mini{font-size:13px;color:var(--muted);display:inline-flex;gap:6px;align-items:center}
+.mini input,.mini select{width:120px}
+.acc-row{display:flex;gap:12px;align-items:flex-start}
+.acc-row>.card{flex:1;min-width:0}
+.acc-check{margin-top:30px;width:18px;height:18px;accent-color:var(--ink);flex:none}
+.modal-bg{position:fixed;inset:0;background:rgba(30,27,58,.35);display:grid;place-items:center;z-index:50;padding:20px}
+.modal{background:var(--card);border-radius:var(--radius);padding:24px;width:min(680px,100%);max-height:90vh;overflow:auto;box-shadow:0 20px 50px rgba(30,27,58,.25)}
 </style>
 </head>
 <body>
@@ -557,7 +568,8 @@ let LOG = loadLog();
 let S = { tab:'check', psec:'profile', stage:'pre', bias:'clear', smallOK:false, dir:null, dxy:null, str:{eur:null,gbp:null}, cmp:null, eurgbp:null,
   pairPick:null, calcPair:'EURUSD', plan:{entry:'',sl:'',tp:''}, pre:{}, tid:null, ptid:null, filter:'all', sel:null, msg:'',
   dr:{during:{}, post:{}}, alarm:false, notified:{}, railOpen:false, accOpen:{},
-  stat:{size:'all', stage:'all', week:'all', from:'', to:'', total:true} };
+  stat:{size:'all', stage:'all', week:'all', from:'', to:'', total:true},
+  accFilter:{firm:'all', size:'all', type:'all'}, accSort:'firm', accSel:{}, accAdd:null };
 
 const has = v => v !== undefined && v !== null && v !== '' && !(typeof v === 'number' && isNaN(v)) && !(Array.isArray(v) && !v.length);
 const esc = s => String(s == null ? '' : s).replace(/[&<>"]/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
@@ -1578,9 +1590,7 @@ function profileSection(){
         <p class="msg" style="margin-top:14px">Signed in with your email. Data syncs to the cloud and is also cached in this browser.</p><div class="btns"><button type="button" class="btn light sm" data-pact="signOut">Sign out</button></div>`);
     }
     case 'accounts':
-      return `<div class="card"><div class="acct-head-top" style="margin-bottom:6px"><p class="label" style="font-size:15px;color:var(--ink);font-weight:600">Propfirm accounts</p><button type="button" class="btn sm" data-pact="addAcc">Add account</button></div>
-        <p class="msg" style="margin-bottom:16px">Click an account to expand its objectives, stats and settings. Week assignment is in Week plan.</p>
-        ${SET.accounts.map((a, i) => acctCard(a, i)).join('') || '<p class="msg">No accounts yet.</p>'}</div>`;
+      return accountsSection();
     case 'plan': return weekPlanSection();
     case 'checklist': return checklistSection();
     case 'risk': return riskSection();
@@ -1621,6 +1631,87 @@ function renderProfile(){
   document.getElementById('profile').innerHTML = `<div class="profile-grid">
     <nav class="card side" aria-label="Profile sections">${nav}</nav>
     <div class="stack">${profileSection()}</div></div>`;
+}
+
+// Accounts shown after the filters and sort are applied. Each item keeps its real index in SET.accounts.
+function accShown(){
+  const F = S.accFilter;
+  const sorters = {
+    firm: (x, y) => (x.a.firm || '').localeCompare(y.a.firm || '') || (x.a.label || '').localeCompare(y.a.label || ''),
+    number: (x, y) => String(x.a.number || '').localeCompare(String(y.a.number || ''), undefined, {numeric: true}),
+    sizeDesc: (x, y) => (+y.a.size || 0) - (+x.a.size || 0),
+    sizeAsc: (x, y) => (+x.a.size || 0) - (+y.a.size || 0),
+    balanceDesc: (x, y) => (+y.a.balance || 0) - (+x.a.balance || 0),
+    riskDesc: (x, y) => (+y.a.risk || 0) - (+x.a.risk || 0)
+  };
+  return SET.accounts.map((a, i) => ({a, i}))
+    .filter(({a}) => (F.firm === 'all' || a.firm === F.firm) && (F.size === 'all' || +a.size === +F.size) && (F.type === 'all' || a.type === F.type))
+    .sort(sorters[S.accSort] || sorters.firm);
+}
+
+function accountsSection(){
+  const F = S.accFilter, sel = S.accSel;
+  const firms = [...new Set(SET.accounts.map(a => a.firm).filter(Boolean))].sort();
+  const sizes = [...new Set(SET.accounts.map(a => +a.size).filter(Boolean))].sort((x, y) => x - y);
+  const opt = (v, cur, label) => `<option value="${esc(v)}" ${String(v) === String(cur) ? 'selected' : ''}>${esc(label)}</option>`;
+  const shown = accShown();
+  const selCount = SET.accounts.filter(a => sel[a.id]).length;
+  const filtered = F.firm !== 'all' || F.size !== 'all' || F.type !== 'all';
+  const allShown = shown.length > 0 && shown.every(({a}) => sel[a.id]);
+  const sorts = [['firm','Firm and name'],['number','Account number'],['sizeDesc','Size: high to low'],['sizeAsc','Size: low to high'],['balanceDesc','Balance: high to low'],['riskDesc','Risk %: high to low']];
+  const filters = `<div class="acc-tools">
+    <label class="field"><span class="label">Propfirm</span><select class="inline" data-accf="firm">${opt('all', F.firm, 'All propfirms')}${firms.map(f => opt(f, F.firm, f)).join('')}</select></label>
+    <label class="field"><span class="label">Account size</span><select class="inline" data-accf="size">${opt('all', F.size, 'All sizes')}${sizes.map(s => opt(s, F.size, '$' + s.toLocaleString('en-US'))).join('')}</select></label>
+    <label class="field"><span class="label">Account type</span><select class="inline" data-accf="type">${opt('all', F.type, 'All types')}${ACCT_TYPES.map(t => opt(t, F.type, t)).join('')}</select></label>
+    <label class="field"><span class="label">Sort by</span><select class="inline" data-accf="sort">${sorts.map(([v, l]) => opt(v, S.accSort, l)).join('')}</select></label>
+  </div>`;
+  const bulk = selCount ? `<div class="acc-bulk"><b>${selCount} selected</b>
+    <label class="mini">Risk % <input class="inline" type="number" step="0.05" id="bulkRisk"></label>
+    <label class="mini">Share % <input class="inline" type="number" min="1" max="100" id="bulkShare"></label>
+    <label class="mini">Week <select class="inline" id="bulkWeek"><option value="">No change</option><option value="0">None</option>${WEEKS.map(w => `<option value="${w}">W${w}</option>`).join('')}</select></label>
+    <button type="button" class="btn sm" data-pact="bulkApply">Apply to selected</button>
+    <button type="button" class="btn light sm" data-pact="bulkClear">Clear selection</button></div>` : '';
+  const empty = SET.accounts.length ? 'No accounts match these filters.' : 'No accounts yet.';
+  return `<div class="card">
+    <div class="acct-head-top" style="margin-bottom:6px"><p class="label" style="font-size:15px;color:var(--ink);font-weight:600">Propfirm accounts
+      <span class="chip">${SET.accounts.length} total</span>${filtered ? ` <span class="chip">${shown.length} shown</span>` : ''}</p>
+      <button type="button" class="btn sm" data-pact="openAcc">Add account</button></div>
+    <p class="msg" style="margin-bottom:16px">Click an account to expand its objectives, stats and settings. Week assignment is in Week plan.</p>
+    ${filters}
+    <div class="acc-toolbar"><label class="mini"><input type="checkbox" data-accall="1" ${allShown ? 'checked' : ''}> Select all shown</label>
+      ${filtered ? '<button type="button" class="btn light sm" data-pact="clearFilters">Clear filters</button>' : ''}</div>
+    ${bulk}
+    ${shown.map(({a, i}) => `<div class="acc-row"><input type="checkbox" class="acc-check" data-accsel="${a.id}" ${sel[a.id] ? 'checked' : ''} aria-label="Select account">${acctCard(a, i)}</div>`).join('') || `<p class="msg">${empty}</p>`}
+  </div>` + accAddModal();
+}
+
+function accAddModal(){
+  const d = S.accAdd;
+  if (!d) return '';
+  const inp = (id, label, val, type, extra) => `<div class="field"><span class="label">${label}</span><input class="inline" id="na-${id}" type="${type || 'text'}" value="${esc(val)}" ${extra || ''}></div>`;
+  const sl = (id, label, opts, val) => `<div class="field"><span class="label">${label}</span><select class="inline" id="na-${id}">${opts.map(([v, l]) => `<option value="${esc(v)}" ${String(v) === String(val) ? 'selected' : ''}>${esc(l)}</option>`).join('')}</select></div>`;
+  return `<div class="modal-bg"><div class="modal" role="dialog" aria-modal="true" aria-label="Add account">
+    <div class="acct-head-top" style="margin-bottom:16px"><p class="label" style="font-size:16px;color:var(--ink);font-weight:600">Add propfirm account</p>
+      <button type="button" class="btn light sm" data-pact="cancelAcc">Close</button></div>
+    <div class="g2">
+      ${inp('firm', 'Propfirm name', '', 'text', 'placeholder="e.g. Blue Guardian"')}
+      ${inp('number', 'Account number', '', 'text')}
+      ${inp('label', 'Label', '', 'text', 'placeholder="e.g. Evaluation 1"')}
+      ${sl('type', 'Account type', ACCT_TYPES.map(t => [t, t]), '2-step')}
+      ${sl('state', 'Stage', [['Evaluation', 'Evaluation'], ['Funded', 'Funded']], 'Evaluation')}
+      ${inp('size', 'Account size ($)', 100000, 'number', 'step="1000" min="0"')}
+      ${inp('balance', 'Current balance ($)', 100000, 'number', 'step="0.01"')}
+      ${inp('commission', 'Commission per lot ($)', 4, 'number', 'step="0.01"')}
+      ${inp('share', 'Share of account traded (%)', 100, 'number', 'min="1" max="100"')}
+      ${inp('risk', 'Risk per trade (%)', 1, 'number', 'step="0.05"')}
+      ${sl('week', 'Week', [['0', 'None']].concat(WEEKS.map(w => [String(w), 'W' + w])), '0')}
+      ${inp('maxDailyLoss', 'Max daily loss (%)', 5, 'number', 'step="0.1"')}
+      ${inp('maxDD', 'Max drawdown (%)', 10, 'number', 'step="0.1"')}
+      ${inp('target', 'Profit target (%)', 10, 'number', 'step="0.1"')}
+    </div>
+    <p class="msg" id="naMsg" style="margin-top:12px;color:#c0392b"></p>
+    <div class="btns" style="justify-content:flex-end;margin-top:16px"><button type="button" class="btn light sm" data-pact="cancelAcc">Cancel</button><button type="button" class="btn sm" data-pact="saveAcc">Save account</button></div>
+  </div></div>`;
 }
 
 function setPath(path, value){
@@ -1776,7 +1867,34 @@ document.addEventListener('click', e => {
   if (pact) {
     const a = pact.dataset.pact;
     if (a === 'signOut') return signOut(auth);
-    if (a === 'addAcc') { const na = {id:uid(), firm:'', number:'', label:'', type:'2-step', state:'Evaluation', size:100000, balance:100000, commission:4, newsAllowed:false, maxDailyLoss:5, maxDD:10, target:10, share:100, risk:1, week:0, days:DAYS.slice(), rules:''}; SET.accounts.push(na); S.accOpen[na.id] = true; }
+    if (a === 'openAcc') { S.accAdd = {}; return render(); }
+    if (a === 'cancelAcc') { S.accAdd = null; return render(); }
+    if (a === 'saveAcc') {
+      const v = id => document.getElementById('na-' + id).value.trim();
+      const n = id => parseFloat(v(id));
+      const msg = t => { document.getElementById('naMsg').textContent = t; };
+      const firm = v('firm');
+      if (!firm) return msg('Enter the propfirm name.');
+      if (!(n('size') > 0)) return msg('Enter a valid account size.');
+      if (isNaN(n('balance'))) return msg('Enter the current balance.');
+      const na = {id:uid(), firm, number:v('number'), label:v('label'), type:v('type'), state:v('state'),
+        size:n('size'), balance:n('balance'), commission:n('commission') || 0, newsAllowed:false,
+        maxDailyLoss:n('maxDailyLoss') || 0, maxDD:n('maxDD') || 0, target:n('target') || 0,
+        share:Math.min(100, Math.max(1, n('share') || 100)), risk:n('risk') || 0, week:+v('week') || 0,
+        days:DAYS.slice(), rules:''};
+      SET.accounts.push(na); S.accAdd = null; S.accOpen[na.id] = true;
+    }
+    if (a === 'clearFilters') { S.accFilter = {firm:'all', size:'all', type:'all'}; return render(); }
+    if (a === 'bulkClear') { S.accSel = {}; return render(); }
+    if (a === 'bulkApply') {
+      const r = document.getElementById('bulkRisk').value, sh = document.getElementById('bulkShare').value, w = document.getElementById('bulkWeek').value;
+      SET.accounts.forEach(x => {
+        if (!S.accSel[x.id]) return;
+        if (r !== '' && !isNaN(+r)) x.risk = +r;
+        if (sh !== '' && !isNaN(+sh)) x.share = Math.min(100, Math.max(1, +sh));
+        if (w !== '') x.week = +w;
+      });
+    }
     if (a === 'delAcc') { SET.accounts.splice(+pact.dataset.i, 1); }
     if (a === 'addCrit') SET.grading[pact.dataset.g].push({id:uid(), label:'New item', field:'liq', pass:['yes']});
     if (a === 'delCrit') SET.grading[pact.dataset.g].splice(+pact.dataset.i, 1);
@@ -1868,6 +1986,9 @@ document.addEventListener('click', e => {
 document.addEventListener('change', e => {
   const t = e.target;
   if (t.matches('input[type="checkbox"][data-smallok]')) return;
+  if (t.matches('[data-accf]')) { if (t.dataset.accf === 'sort') S.accSort = t.value; else S.accFilter[t.dataset.accf] = t.value; return render(); }
+  if (t.matches('[data-accsel]')) { S.accSel[t.dataset.accsel] = t.checked; return render(); }
+  if (t.matches('[data-accall]')) { accShown().forEach(({a}) => { S.accSel[a.id] = t.checked; }); return render(); }
   if (t.matches('[data-sf]')) { S.stat[t.dataset.sf] = t.type === 'checkbox' ? t.checked : t.value; return render(); }
   if (t.matches('[data-ctext]')) { S.pre.custom = S.pre.custom || {}; S.pre.custom[t.dataset.ctext] = t.value; return render(); }
   if (t.matches('[data-ql]')) { SET.qLabels[t.dataset.ql] = t.value.trim() || DEFAULT_LABELS[t.dataset.ql]; saveAll(); return render(); }
