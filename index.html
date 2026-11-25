@@ -62,7 +62,7 @@ h1{font-size:clamp(28px,3.4vw,40px);font-weight:600;letter-spacing:-.02em;margin
 .card.sub{border-radius:20px;padding:0;border:1px solid var(--line);box-shadow:none;overflow:hidden}
 .card.dark{background:var(--ink);color:#fff}
 .card.dark .muted,.card.dark .label{color:#A3A6AC}
-.hero{background:linear-gradient(120deg,#7C5CF6 0%,#B8A4FF 60%,#DDEBB0 100%);padding:22px;color:#fff;display:grid;gap:8px;justify-items:start}
+.hero{background:linear-gradient(120deg,#111210 0%,#2F4A0A 55%,#7DB31A 100%);padding:22px;color:#fff;display:grid;gap:8px;justify-items:start}
 .hero .big-pair{font-size:30px;font-weight:600;letter-spacing:-.02em;margin:8px 0 2px}
 .label{font-size:13px;color:var(--muted);font-weight:500;margin:0}
 .msg{font-size:13px;color:var(--muted);margin:0}
@@ -116,7 +116,7 @@ textarea.inline{resize:vertical;min-height:60px}
 .dot{width:10px;height:10px;border-radius:50%;flex:none}
 .val{font-weight:600;font-variant-numeric:tabular-nums}
 .pos{color:#4D7A05}.neg{color:#B42318}
-.drawer{border-radius:var(--radius);padding:24px;color:#fff;background:linear-gradient(165deg,#E8738A 0%,#6D4FE0 48%,#4FA98F 100%);display:grid;gap:16px;align-content:start}
+.drawer{border-radius:var(--radius);padding:24px;color:#fff;background:linear-gradient(165deg,#111210 0%,#3F5A12 55%,#7DB31A 100%);display:grid;gap:16px;align-content:start}
 .drawer .muted{color:rgba(255,255,255,.8)}
 .drawer .big{font-size:52px;font-weight:600;letter-spacing:-.02em;font-variant-numeric:tabular-nums;line-height:1}
 .drawer .btn{background:rgba(17,18,16,.9)}
@@ -138,6 +138,8 @@ textarea.inline{resize:vertical;min-height:60px}
 .summary div:first-child{border-top:none}
 .table{width:100%;border-collapse:collapse;font-size:14px}
 .table td,.table th{padding:10px 8px;border-top:1px solid var(--line);text-align:left;vertical-align:top}
+.table.center td,.table.center th{text-align:center;vertical-align:middle}
+.table.center td:first-child,.table.center th:first-child{text-align:left}
 .table th{font-size:12px;color:var(--muted);font-weight:500}
 .crit{display:grid;gap:10px;padding:14px 0;border-top:1px solid var(--line)}
 .planrow{display:flex;justify-content:space-between;align-items:center;gap:12px;padding:14px 0;border-top:1px solid var(--line);flex-wrap:wrap}
@@ -195,7 +197,8 @@ details[open] summary::after{content:"−"}
 .stages button{display:inline-flex;align-items:center;gap:10px;line-height:1.2}
 .stages .stat{line-height:1}
 select.inline{appearance:none;-webkit-appearance:none;padding-right:44px;background-color:var(--bg);background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='8' viewBox='0 0 12 8'%3E%3Cpath d='M1 1l5 5 5-5' fill='none' stroke='%231E1B3A' stroke-width='1.8' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E");background-repeat:no-repeat;background-position:right 18px center}
-input.inline[type=date]{padding-right:44px}
+input.inline[type=date]{padding-right:14px}
+input.inline[type=date]::-webkit-calendar-picker-indicator{opacity:.55;cursor:pointer;margin-left:12px;padding:2px}
 .chip.acc{padding:7px 14px;line-height:1.2}
 .row .chip{justify-self:end}
 .chev{align-self:center}
@@ -618,7 +621,7 @@ let S = { tab:'check', psec:'profile', stage:'pre', bias:'clear', smallOK:false,
   pairPick:null, calcPair:'EURUSD', plan:{entry:'',sl:'',tp:''}, pre:{}, tid:null, ptid:null, filter:'all', sel:null, msg:'',
   dr:{during:{}, post:{}}, alarm:false, notified:{}, railOpen:false, accOpen:{},
   stat:{size:'all', stage:'all', week:'all', from:'', to:'', total:true},
-  accFilter:{firm:'all', size:'all', type:'all'}, accSort:'firm', accSel:{}, accAdd:null, gradeOpen:{A:true, B:true} };
+  accFilter:{firm:'all', size:'all', type:'all'}, accSort:'firm', accSel:{}, accAdd:null, gradeOpen:{A:true, B:true}, legendOpen:false };
 
 const has = v => v !== undefined && v !== null && v !== '' && !(typeof v === 'number' && isNaN(v)) && !(Array.isArray(v) && !v.length);
 const esc = s => String(s == null ? '' : s).replace(/[&<>"]/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
@@ -986,7 +989,7 @@ function renderSizing(rd){
       </div>
       <p class="msg">${esc(pc.msg)}. Lots = balance × share % × risk % ÷ (stop pips × $${PIP_VALUE_PER_LOT.toFixed(2)}). Both pairs are USD-quoted, so the pip value is the same.</p>
     </div>
-    ${rows.length ? `<table class="table" style="margin-top:16px"><thead><tr><th>Account</th><th>Risk</th><th>Recommended</th><th>Risk $</th><th>Lots</th><th>Commission</th><th>Status</th></tr></thead><tbody>
+    ${rows.length ? `<table class="table center" style="margin-top:16px"><thead><tr><th>Account</th><th>Risk</th><th>Recommended</th><th>Risk $</th><th>Lots</th><th>Commission</th><th>Status</th></tr></thead><tbody>
       ${rows.map(x => `<tr><td><b>${esc(x.acc.firm)}</b><br><span class="msg">${esc(x.acc.number)} · ${esc(x.acc.label)}</span></td>
         <td>${x.risk}%</td><td>${recText(x)}</td><td>${money(x.riskUsd)}</td><td class="val">${x.lots == null ? '—' : x.lots.toFixed(2)}</td><td>${x.comm == null ? '—' : money(x.comm)}</td>
         <td><span class="chip ${x.ok ? 'ok' : 'stop'}">${esc(x.msg)}</span></td></tr>`).join('')}
@@ -1542,7 +1545,7 @@ function renderBalance(){
     const now = series.reduce((s, x) => s + x.pts[x.pts.length - 1].v, 0), start = series.reduce((s, x) => s + x.pts[0].v, 0);
     body = `<svg viewBox="0 0 ${W} ${H}" width="100%" role="img" aria-label="Account balance progress">${grid}${guide}${totalLine}${lines}${pills}</svg>
       <div class="stat-line"><span>${series.length} account(s)</span><span>Combined ${money(now)} · ${money(now - start)}</span></div>
-      <div style="margin-top:8px">${legend}</div>`;
+      <div style="margin-top:12px"><button type="button" class="btn light sm" data-legend="1">${S.legendOpen ? 'Hide accounts' : 'Show accounts (' + series.length + ')'}</button>${S.legendOpen ? `<div style="margin-top:8px">${legend}</div>` : ''}</div>`;
   }
   document.getElementById('balanceCard').innerHTML = `<div class="acct-head-top" style="margin-bottom:4px"><p class="label" style="font-size:15px;color:var(--ink);font-weight:600">Account balance progress</p>
     <span class="msg">Equity is shown as balance: open-trade P&amp;L is not recorded.</span></div>` + controls + body;
@@ -1985,6 +1988,8 @@ document.addEventListener('click', e => {
   }
   const cp = e.target.closest('[data-calcpair]');
   if (cp) { S.calcPair = cp.dataset.pv; return render(); }
+  const lg = e.target.closest('[data-legend]');
+  if (lg) { S.legendOpen = !S.legendOpen; return render(); }
   const gt = e.target.closest('[data-gtoggle]');
   if (gt) { const g = gt.dataset.gtoggle; S.gradeOpen[g] = S.gradeOpen[g] === false; return render(); }
   const ah = e.target.closest('[data-acctoggle]');
