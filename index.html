@@ -589,6 +589,9 @@ const todayDay = () => DAYS[(new Date().getDay() + 6) % 7];
 const ymd = () => new Date().toLocaleDateString('en-CA');
 const uid = () => Date.now().toString(36) + Math.random().toString(36).slice(2,7);
 const clampShare = s => Math.min(100, Math.max(1, +s || 100));
+// Balance the risk % is applied to. Gains do not raise it (capped at the account's reference balance);
+// losses lower it (uses the current balance when it is below the reference).
+const riskBase = a => { const cur = acctStats(a).cur; const ref = +a.balance > 0 ? +a.balance : cur; return Math.min(cur, ref); };
 const weekLabel = w => w ? 'Week ' + w : 'Unassigned';
 // An account can trade in several weeks: a.weeks is a list such as [1, 4].
 const acctWeeks = a => Array.isArray(a.weeks) ? a.weeks : [];
@@ -781,7 +784,7 @@ function activeAccounts(){
   const day = todayDay();
   return SET.accounts.filter(a => inWeek(a, SET.activeWeek)).map(a => {
     const risk = +a.risk || 0;
-    const capital = acctStats(a).cur * clampShare(a.share) / 100;
+    const capital = riskBase(a) * clampShare(a.share) / 100;
     const riskUsd = capital * risk / 100;
     const rule = recommendFor(a, grade);
     let ok = true, msg = 'Ready', lots = null, comm = null;
