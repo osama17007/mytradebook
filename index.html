@@ -686,6 +686,16 @@ function gradeOf(pre){
   return { grade, rows, miss };
 }
 
+// Pairs blocked by an all-day news event on a given date. USD affects both pairs.
+function blockedPairsToday(day){
+  const set = new Set();
+  (SET.newsCal || []).filter(e => e.allDay && e.date === (day || ymd())).forEach(e => {
+    if (e.ccy === 'EUR' || e.ccy === 'USD') set.add('EURUSD');
+    if (e.ccy === 'GBP' || e.ccy === 'USD') set.add('GBPUSD');
+  });
+  return set;
+}
+
 function vet(){
   const r = { steps:{}, stop:null, pending:null, cands:[], allowed:[], pair:null, pref:null };
   const fail = (k,m) => { r.steps[k] = {s:'stop', m}; if (!r.stop) r.stop = m; };
@@ -724,6 +734,13 @@ function vet(){
     if (!prio.length) r.steps.eurgbp = {s:'off', m:'No candidate pair'};
     else if (!r.allowed.length) fail('eurgbp', 'EURGBP prefers ' + r.pref + ', which excludes the candidate');
     else ok('eurgbp', r.pref === 'both' ? 'Both pairs allowed' : r.pref + ' preferred');
+  }
+  const blocked = blockedPairsToday();
+  if (blocked.size) {
+    const hit = r.allowed.filter(p => blocked.has(p));
+    r.allowed = r.allowed.filter(p => !blocked.has(p));
+    if (hit.length && !r.allowed.length && !r.stop) r.stop = 'All-day news today blocks ' + hit.join(' and ');
+    else if (hit.length && !r.pending) r.pending = hit.join(' and ') + ' blocked by all-day news today';
   }
   if (r.allowed.length === 1) r.pair = r.allowed[0];
   else if (r.allowed.length > 1) r.pair = r.allowed.includes(S.pairPick) ? S.pairPick : null;
@@ -1124,7 +1141,7 @@ function renderCounter(){
 
 function renderNews(){
   const now = new Date(), today = ymd();
-  const evs = SET.newsCal.filter(e => e.date === today).map(e => {
+  const evs = SET.newsCal.filter(e => e.date === today && !e.allDay).map(e => {
     const [h, m] = e.time.split(':');
     const t = new Date(now); t.setHours(+h || 0, +m || 0, 0, 0);
     return {...e, diff: (t - now) / 60000};
@@ -1642,12 +1659,13 @@ function profileSection(){
       return card('Rules to follow during the trade', `<p class="msg" style="margin-bottom:12px">One per line. They appear as checkboxes during each trade.</p>
         <textarea class="inline" rows="6" data-lines="rules">${esc(SET.rules.join('\n'))}</textarea>`);
     case 'news': {
-      const calRows = SET.newsCal.map((e, i) => `<div class="planrow"><span>${esc(e.date)} · ${esc(e.time)} · ${esc(e.ccy)} · ${esc(e.name)}</span><button type="button" class="btn light sm" data-pact="delCal" data-i="${i}">Remove</button></div>`).join('') || '<p class="msg">No news events added for any day.</p>';
+      const calRows = SET.newsCal.map((e, i) => `<div class="planrow"><span>${esc(e.date)} · ${e.allDay ? 'All day' : esc(e.time)} · ${esc(e.ccy)} · ${esc(e.name)}</span><button type="button" class="btn light sm" data-pact="delCal" data-i="${i}">Remove</button></div>`).join('') || '<p class="msg">No news events added for any day.</p>';
       return card('High-impact news list', `<p class="msg" style="margin-bottom:12px">One per line. These fill the news dropdowns in the setup.</p>
         <textarea class="inline" rows="6" data-lines="newsList">${esc(SET.newsList.join('\n'))}</textarea>`) +
       card('News calendar', `<p class="msg" style="margin-bottom:12px">A banner appears 20 minutes before each event while this page is open. Phone alarms and email need a backend, which this page does not have.</p>
         ${calRows}
         <div class="g3" style="margin-top:16px"><input class="inline" type="date" id="calDate" value="${ymd()}"><input class="inline" type="time" id="calTime"><select class="inline" id="calCcy"><option>USD</option><option>EUR</option><option>GBP</option></select></div>
+        <label class="inline-lbl" style="margin-top:12px"><input type="checkbox" id="calAllDay"> All day: blocks the pairs this currency affects on that date (USD blocks both)</label>
         <div class="g2" style="margin-top:12px"><select class="inline" id="calName">${SET.newsList.map(n => `<option>${esc(n)}</option>`).join('')}</select><button type="button" class="btn sm" data-pact="addCal">Add event</button></div>`);
     }
     case 'global':
@@ -1962,8 +1980,9 @@ document.addEventListener('click', e => {
     if (a === 'delCond') { const r = SET.riskRules[+pact.dataset.i]; if (r.when.length > 1) r.when.splice(+pact.dataset.c, 1); }
     if (a === 'addCal') {
       const date = document.getElementById('calDate').value, time = document.getElementById('calTime').value;
-      if (!date || !time) return;
-      SET.newsCal.push({id:uid(), date, time, ccy:document.getElementById('calCcy').value, name:document.getElementById('calName').value});
+      const allDay = document.getElementById('calAllDay').checked;
+      if (!date || (!allDay && !time)) return;
+      SET.newsCal.push({id:uid(), date, time: allDay ? '' : time, allDay, ccy:document.getElementById('calCcy').value, name:document.getElementById('calName').value});
     }
     if (a === 'delCal') SET.newsCal.splice(+pact.dataset.i, 1);
     saveAll(); return render();

@@ -24,6 +24,18 @@ function checkNews() {
   const sent = JSON.parse(props.getProperty('sent') || '[]');
   let changed = false;
 
+  // All-day events: one email per event, sent the first time the check runs on that day.
+  events.forEach(function (ev) {
+    if (!ev.allDay || ev.date !== day) return;
+    const key = 'allday-' + day + '-' + (ev.id || ev.ccy + ev.name);
+    if (sent.indexOf(key) !== -1) return;
+    MailApp.sendEmail(TO,
+      'Trade Gate: all-day news ' + ev.ccy + ' ' + ev.name,
+      'All-day news today (' + day + '): ' + ev.ccy + ' ' + ev.name + '.\nThe pairs it affects are blocked in Trade Gate today.');
+    sent.push(key);
+    changed = true;
+  });
+
   events.forEach(function (ev) {
     if (ev.date !== day || !ev.time) return;
     const parts = ev.time.split(':').map(Number);
