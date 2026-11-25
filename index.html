@@ -621,7 +621,7 @@ let S = { tab:'check', psec:'profile', stage:'pre', bias:'clear', smallOK:false,
   pairPick:null, calcPair:'EURUSD', plan:{entry:'',sl:'',tp:''}, pre:{}, tid:null, ptid:null, filter:'all', sel:null, msg:'',
   dr:{during:{}, post:{}}, alarm:false, notified:{}, railOpen:false, accOpen:{},
   stat:{size:'all', stage:'all', week:'all', from:'', to:'', total:true},
-  accFilter:{firm:'all', size:'all', type:'all'}, accSort:'firm', accSel:{}, accAdd:null, gradeOpen:{A:true, B:true}, legendOpen:false };
+  accFilter:{firm:'all', size:'all', type:'all'}, accSort:'firm', accSel:{}, accAdd:null, gradeOpen:{A:true, B:true}, legendOpen:false, ledgerEdit:null };
 
 const has = v => v !== undefined && v !== null && v !== '' && !(typeof v === 'number' && isNaN(v)) && !(Array.isArray(v) && !v.length);
 const esc = s => String(s == null ? '' : s).replace(/[&<>"]/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
@@ -1930,21 +1930,9 @@ function moneySection(){
   const tiles = `<div class="tiles3" style="margin-bottom:14px">${card('Net P&amp;L, all-in', money(t.allIn), cls(t.allIn))}${card('Trading only', money(t.tradeNet), cls(t.tradeNet))}${card('Account ROI', t.accounts ? fmtPct((t.payouts - t.accounts) / t.accounts) : '—', cls(t.payouts - t.accounts))}</div>
     <div class="tiles3" style="margin-bottom:14px">${card('Spent on accounts', money(t.accounts))}${card('Payouts received', money(t.payouts))}${card('Forex from journal', money(t.forex), cls(t.forex))}</div>
     <div class="tiles3">${card('Deposited to platforms', money(t.deposits))}${card('Withdrawn to bank', money(t.withdrawals))}${card('Entries', rows.length)}</div>`;
-  const opts = (list, cur) => list.map(([v, l]) => `<option value="${esc(v)}" ${v === cur ? 'selected' : ''}>${esc(l)}</option>`).join('');
-  const form = `<div class="g3">
-      <label class="field"><span class="label">Date</span><input class="inline" type="date" id="lDate" value="${ymd()}"></label>
-      <label class="field"><span class="label">Platform</span><select class="inline" id="lPlat">${LEDGER_PLATFORMS.map(p => `<option>${esc(p)}</option>`).join('')}</select></label>
-      <label class="field"><span class="label">Type</span><select class="inline" id="lType">${opts(Object.entries(LEDGER_TYPES).map(([k, v]) => [k, v.label]), 'loss')}</select></label>
-    </div>
-    <div class="g3" style="margin-top:12px">
-      <label class="field"><span class="label">Amount (USD)</span><input class="inline" type="number" step="0.01" min="0" id="lAmt"></label>
-      <label class="field"><span class="label">Prop firm (for accounts and payouts)</span><input class="inline" id="lFirm" placeholder="e.g. Blue Guardian"></label>
-      <label class="field"><span class="label">Account size (USD)</span><input class="inline" type="number" min="0" id="lSize"></label>
-    </div>
-    <div class="g2" style="margin-top:12px;align-items:end">
-      <label class="field"><span class="label">Note</span><input class="inline" id="lNote" placeholder="Optional"></label>
-      <div class="btns" style="justify-content:flex-end"><button type="button" class="btn sm" data-pact="addLedger">Add entry</button></div>
-    </div>
+  const form = ledgerFields('l', {date: ymd(), platform: 'Binance', type: 'loss', amount: '', firm: '', size: '', note: ''},
+    `<label class="field"><span class="label">Quantity (same-size bundle)</span><input class="inline" type="number" min="1" max="50" step="1" id="lQty" value="1"></label>`) +
+    `<div class="btns" style="justify-content:space-between;align-items:center;margin-top:12px"><span class="msg">Bundle: set a quantity to add several identical accounts at once.</span><button type="button" class="btn sm" data-pact="addLedger">Add entry</button></div>
     <p class="msg" id="lMsg" style="margin-top:10px;color:#B42318"></p>`;
   const platMap = {};
   rows.forEach(r => { platMap[r.platform] = platMap[r.platform] || {n:0, net:0}; platMap[r.platform].n++; platMap[r.platform].net += r.signed; });
@@ -1959,7 +1947,7 @@ function moneySection(){
     const shown = r.src === 'manual' && (r.type === 'deposit' || r.type === 'withdrawal') ? r.amount : r.signed;
     const detail = [r.firm ? esc(r.firm) + (r.size ? ' $' + (r.size / 1000) + 'K' : '') : '', r.note ? esc(r.note) : '', r.src === 'journal' ? 'From trade journal' : ''].filter(Boolean).join(' · ');
     return `<div class="planrow"><span style="min-width:0"><b>${esc(r.date)}</b> · ${esc(r.platform)} · ${esc(label)}${detail ? `<br><span class="msg">${detail}</span>` : ''}</span>
-      <span style="display:flex;gap:12px;align-items:center"><span class="val ${cls(shown)}">${money(shown)}</span>${r.src === 'manual' ? `<button type="button" class="btn light sm" data-pact="delLedger" data-id="${esc(r.id)}">Remove</button>` : ''}</span></div>`;
+      <span style="display:flex;gap:12px;align-items:center"><span class="val ${cls(shown)}">${money(shown)}</span>${r.src === 'manual' ? `<button type="button" class="btn light sm" data-pact="editLedger" data-id="${esc(r.id)}">Edit</button>` : ''}</span></div>`;
   }).join('') || '<p class="msg">No entries yet. Add your first one below.</p>';
   return `<div class="card"><p class="label" style="font-size:15px;color:var(--ink);font-weight:600;margin-bottom:6px">Money ledger</p>
       <p class="msg" style="margin-bottom:16px">Every dollar in USD. Net P&amp;L (all-in) includes trade results, fees, account costs and payouts. Deposits and withdrawals are transfers, so they are not counted as profit. Forex trades come from the journal automatically.</p>
@@ -1967,7 +1955,48 @@ function moneySection(){
     <div class="card"><p class="label" style="font-size:15px;color:var(--ink);font-weight:600;margin-bottom:14px">Add an entry</p>${form}</div>
     <div class="g2" style="align-items:start"><div class="card"><p class="label" style="font-size:15px;color:var(--ink);font-weight:600;margin-bottom:8px">By platform</p>${platRows}</div>
       <div class="card"><p class="label" style="font-size:15px;color:var(--ink);font-weight:600;margin-bottom:8px">By month</p>${monthRows}</div></div>
-    <div class="card"><p class="label" style="font-size:15px;color:var(--ink);font-weight:600;margin-bottom:8px">Ledger</p>${list}</div>`;
+    <div class="card"><p class="label" style="font-size:15px;color:var(--ink);font-weight:600;margin-bottom:8px">Ledger</p>${list}</div>${ledgerEditModal()}`;
+}
+
+// Shared fields for the add form and the edit popup. p prefixes the element ids.
+function ledgerFields(p, v, extra){
+  const typeOpts = Object.entries(LEDGER_TYPES).map(([k, t]) => `<option value="${k}" ${k === v.type ? 'selected' : ''}>${esc(t.label)}</option>`).join('');
+  const platOpts = LEDGER_PLATFORMS.map(x => `<option value="${esc(x)}" ${x === v.platform ? 'selected' : ''}>${esc(x)}</option>`).join('');
+  return `<div class="g3">
+      <label class="field"><span class="label">Date</span><input class="inline" type="date" id="${p}Date" value="${esc(v.date || '')}"></label>
+      <label class="field"><span class="label">Platform</span><select class="inline" id="${p}Plat">${platOpts}</select></label>
+      <label class="field"><span class="label">Type</span><select class="inline" id="${p}Type">${typeOpts}</select></label>
+    </div>
+    <div class="g3" style="margin-top:12px">
+      <label class="field"><span class="label">Amount (USD)</span><input class="inline" type="number" step="0.01" min="0" id="${p}Amt" value="${v.amount ?? ''}"></label>
+      <label class="field"><span class="label">Prop firm (for accounts and payouts)</span><input class="inline" id="${p}Firm" value="${esc(v.firm || '')}" placeholder="e.g. Blue Guardian"></label>
+      <label class="field"><span class="label">Account size (USD)</span><input class="inline" type="number" min="0" id="${p}Size" value="${v.size || ''}"></label>
+    </div>
+    <div class="g2" style="margin-top:12px;align-items:end">
+      <label class="field"><span class="label">Note</span><input class="inline" id="${p}Note" value="${esc(v.note || '')}" placeholder="Optional"></label>${extra || ''}
+    </div>`;
+}
+// Reads a ledger form. Returns the entry fields, or {error}.
+function readLedgerForm(p){
+  const v = k => document.getElementById(p + k).value.trim();
+  const amount = parseFloat(v('Amt'));
+  if (!v('Date')) return {error: 'Pick a date.'};
+  if (!(amount > 0)) return {error: 'Enter an amount greater than zero.'};
+  return {date: v('Date'), platform: v('Plat'), type: v('Type'), amount, firm: v('Firm'), size: parseFloat(v('Size')) || 0, note: v('Note')};
+}
+// Popup for editing one manual ledger entry.
+function ledgerEditModal(){
+  const e = (SET.ledger || []).find(x => x.id === S.ledgerEdit);
+  if (!e) return '';
+  return `<div class="modal-bg"><div class="modal" role="dialog" aria-modal="true" aria-label="Edit ledger entry">
+    <div class="acct-head-top" style="margin-bottom:16px"><p class="label" style="font-size:16px;color:var(--ink);font-weight:600">Edit entry</p>
+      <button type="button" class="btn light sm" data-pact="cancelLedgerEdit">Close</button></div>
+    ${ledgerFields('le', e)}
+    <p class="msg" id="leMsg" style="margin-top:10px;color:#B42318"></p>
+    <div class="btns" style="justify-content:space-between;margin-top:16px">
+      <button type="button" class="btn danger sm" data-pact="delLedger" data-id="${esc(e.id)}">Remove entry</button>
+      <span style="display:flex;gap:8px"><button type="button" class="btn light sm" data-pact="cancelLedgerEdit">Cancel</button><button type="button" class="btn sm" data-pact="saveLedgerEdit">Save changes</button></span>
+    </div></div></div>`;
 }
 
 document.addEventListener('click', e => {
@@ -2140,15 +2169,22 @@ document.addEventListener('click', e => {
     }
     if (a === 'delCal') SET.newsCal.splice(+pact.dataset.i, 1);
     if (a === 'addLedger') {
-      const v = id => document.getElementById(id).value.trim();
-      const msg = t => { document.getElementById('lMsg').textContent = t; };
-      const amt = parseFloat(v('lAmt'));
-      if (!v('lDate')) return msg('Pick a date.');
-      if (!(amt > 0)) return msg('Enter an amount greater than zero.');
+      const r = readLedgerForm('l');
+      if (r.error) { document.getElementById('lMsg').textContent = r.error; return; }
+      const qty = Math.min(50, Math.max(1, parseInt(document.getElementById('lQty').value, 10) || 1));
       SET.ledger = SET.ledger || [];
-      SET.ledger.push({id:uid(), date:v('lDate'), platform:v('lPlat'), type:v('lType'), amount:amt, firm:v('lFirm'), size:parseFloat(v('lSize')) || 0, note:v('lNote')});
+      for (let i = 0; i < qty; i++) SET.ledger.push({id: uid(), ...r});
     }
-    if (a === 'delLedger') SET.ledger = (SET.ledger || []).filter(e => e.id !== pact.dataset.id);
+    if (a === 'editLedger') { S.ledgerEdit = pact.dataset.id; return render(); }
+    if (a === 'cancelLedgerEdit') { S.ledgerEdit = null; return render(); }
+    if (a === 'saveLedgerEdit') {
+      const r = readLedgerForm('le');
+      if (r.error) { document.getElementById('leMsg').textContent = r.error; return; }
+      const en = (SET.ledger || []).find(x => x.id === S.ledgerEdit);
+      if (en) Object.assign(en, r);
+      S.ledgerEdit = null;
+    }
+    if (a === 'delLedger') { SET.ledger = (SET.ledger || []).filter(en => en.id !== pact.dataset.id); S.ledgerEdit = null; }
     saveAll(); return render();
   }
   const alarm = e.target.closest('[data-act="alarm-on"]');
