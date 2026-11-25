@@ -247,6 +247,8 @@ h1,h2,h3{letter-spacing:-.03em}
 .crit,.planrow{border-top-color:#E6E7EA}
 svg polyline,svg path{stroke-linejoin:round;stroke-linecap:round}
 svg line{stroke-dasharray:none}
+.big{font-size:40px;font-weight:600;letter-spacing:-.03em;line-height:1.1;font-variant-numeric:tabular-nums}
+.big small{font-size:12px;font-weight:600;background:#EEF6D6;color:#4D7A05;border-radius:999px;padding:4px 10px;vertical-align:middle;margin-left:6px;letter-spacing:0}
 </style>
 </head>
 <body>
@@ -1348,6 +1350,28 @@ function renderLS(){
     pairBars('Average R per trade', L.avg, Sh.avg, fmtR) + pairBars('Win rate', L.win, Sh.win, fmtPct);
 }
 
+// Smooth curve through [x, y] points (Catmull-Rom converted to cubic Bezier segments).
+function smoothPath(pts){
+  if (!pts.length) return '';
+  if (pts.length < 2) return `M${pts[0][0].toFixed(1)},${pts[0][1].toFixed(1)}`;
+  let d = `M${pts[0][0].toFixed(1)},${pts[0][1].toFixed(1)}`;
+  for (let i = 0; i < pts.length - 1; i++) {
+    const p0 = pts[i - 1] || pts[i], p1 = pts[i], p2 = pts[i + 1], p3 = pts[i + 2] || p2;
+    const c1x = p1[0] + (p2[0] - p0[0]) / 6, c1y = p1[1] + (p2[1] - p0[1]) / 6;
+    const c2x = p2[0] - (p3[0] - p1[0]) / 6, c2y = p2[1] - (p3[1] - p1[1]) / 6;
+    d += ` C${c1x.toFixed(1)},${c1y.toFixed(1)} ${c2x.toFixed(1)},${c2y.toFixed(1)} ${p2[0].toFixed(1)},${p2[1].toFixed(1)}`;
+  }
+  return d;
+}
+// White pill with a value (and optional green badge) above a point, like the reference tooltips.
+function pillLabel(x, y, text, sub, W){
+  const w = text.length * 8.2 + (sub ? 84 : 28), h = 30;
+  const rx = Math.min(Math.max(x - w / 2, 4), W - w - 4), ry = Math.max(y - h - 14, 4);
+  const badge = sub ? `<rect x="${(rx + w - 60).toFixed(1)}" y="${ry + 5}" width="50" height="20" rx="10" style="fill:#EEF6D6"/><text x="${(rx + w - 35).toFixed(1)}" y="${ry + 19}" text-anchor="middle" style="fill:#4D7A05;font-size:11px;font-weight:600">${sub}</text>` : '';
+  return `<rect x="${rx.toFixed(1)}" y="${ry}" width="${w.toFixed(1)}" height="${h}" rx="15" style="fill:#fff;stroke:#E6E7EA"/>
+    <text x="${(rx + 14).toFixed(1)}" y="${ry + 20}" style="fill:#111210;font-size:13px;font-weight:600">${text}</text>${badge}`;
+}
+
 function renderStats(){
   const trades = LOG.filter(x => x.action === 'trade');
   const skips = LOG.filter(x => x.action === 'skip');
@@ -1382,15 +1406,17 @@ function renderStats(){
     const max = Math.max(0, ...pts), min = Math.min(0, ...pts), span = (max - min) || 1;
     const X = i => P + i * (W - 2 * P) / (pts.length - 1);
     const Y = v => H - P - (v - min) / span * (H - P - 34);
-    const line = pts.map((v,i) => (i ? 'L' : 'M') + X(i).toFixed(1) + ',' + Y(v).toFixed(1)).join('');
-    const last = pts.length - 1;
+    const last = pts.length - 1, base = Y(0);
+    const curve = smoothPath(pts.map((v, i) => [X(i), Y(v)]));
     eq.innerHTML = `<svg viewBox="0 0 ${W} ${H}" width="100%" role="img" aria-label="Cumulative R curve">
-      <line x1="${P}" x2="${W-P}" y1="${Y(0)}" y2="${Y(0)}" style="stroke:var(--line)" stroke-dasharray="4 4"/>
-      <path d="${line} L${X(last)},${Y(0)} L${X(0)},${Y(0)} Z" style="fill:rgba(75,59,240,.12)"/>
-      <path d="${line}" fill="none" style="stroke:var(--accent)" stroke-width="2.5" stroke-linejoin="round"/>
-      <circle cx="${X(last)}" cy="${Y(pts[last])}" r="5" style="fill:var(--ink)"/>
-      <text x="${P}" y="${Y(0)-6}" style="fill:var(--muted);font-size:12px">0R</text>
-      <text x="${W-P}" y="${Y(pts[last])-10}" text-anchor="end" style="fill:var(--ink);font-size:13px;font-weight:600">${fmtR(pts[last])}</text></svg>`;
+      <defs><linearGradient id="eqFill" x1="0" x2="0" y1="0" y2="1"><stop offset="0" stop-color="#7DB31A" stop-opacity=".30"/><stop offset="1" stop-color="#7DB31A" stop-opacity="0"/></linearGradient></defs>
+      <line x1="${P}" x2="${W-P}" y1="${base}" y2="${base}" style="stroke:#E6E7EA" stroke-dasharray="4 4"/>
+      <path d="${curve} L${X(last)},${base} L${X(0)},${base} Z" style="fill:url(#eqFill)"/>
+      <line x1="${X(last)}" x2="${X(last)}" y1="${Y(pts[last])}" y2="${H - P}" style="stroke:#9CA0A8" stroke-dasharray="2 4"/>
+      <path d="${curve}" fill="none" style="stroke:#7DB31A" stroke-width="3"/>
+      <circle cx="${X(last)}" cy="${Y(pts[last])}" r="6" style="fill:#fff;stroke:#7DB31A;stroke-width:3"/>
+      ${pillLabel(X(last), Y(pts[last]), fmtR(pts[last]), '', W)}
+      <text x="${P}" y="${base - 6}" style="fill:#8B8E95;font-size:12px">0R</text></svg>`;
   }
 
   const gradeStats = ['A','B','U'].map(g => {
@@ -1485,9 +1511,12 @@ function renderBalance(){
       const t = xMin + (xMax - xMin) * k / 4;
       grid += `<text x="${X(t)}" y="${H - 10}" text-anchor="middle" style="fill:var(--muted);font-size:12px">${new Date(t).toLocaleDateString([], {month:'short', day:'numeric'})}</text>`;
     }
-    const lines = series.map(s => `<path d="${pathOf(s.pts)}" fill="none" style="stroke:${s.color}" stroke-width="2.2" stroke-linejoin="round"/>` +
-      s.pts.map(p => `<circle cx="${X(p.t)}" cy="${Y(p.v)}" r="3" style="fill:${s.color}"/>`).join('')).join('');
-    const totalLine = total ? `<path d="${pathOf(total)}" fill="none" style="stroke:var(--ink)" stroke-width="2" stroke-dasharray="6 5"/>` : '';
+    const lines = series.map(s => `<path d="${smoothPath(s.pts.map(p => [X(p.t), Y(p.v)]))}" fill="none" style="stroke:${s.color}" stroke-width="2.6"/>`).join('');
+    const totalLine = total ? `<path d="${smoothPath(total.map(p => [X(p.t), Y(p.v)]))}" fill="none" style="stroke:#111210" stroke-width="2.2" stroke-dasharray="6 5"/>` : '';
+    const guide = `<line x1="${X(xMax)}" x2="${X(xMax)}" y1="${T}" y2="${H - B}" style="stroke:#9CA0A8" stroke-dasharray="2 4"/>`;
+    const pills = total
+      ? (() => { const lt = total[total.length - 1]; return pillLabel(X(lt.t), Y(lt.v), money(lt.v), '', W); })()
+      : series.map(s => { const lp = s.pts[s.pts.length - 1]; return pillLabel(X(lp.t), Y(lp.v), money(lp.v), '', W); }).join('');
     const legend = series.map(s => {
       const last = s.pts[s.pts.length - 1].v, d = last - s.pts[0].v;
       return `<div class="legend-item"><span class="dot" style="background:${s.color}"></span>
@@ -1495,7 +1524,7 @@ function renderBalance(){
         <div style="text-align:right"><div class="val">${money(last)}</div><div class="msg ${d < 0 ? 'neg' : d > 0 ? 'pos' : ''}">${money(d)}</div></div></div>`;
     }).join('');
     const now = series.reduce((s, x) => s + x.pts[x.pts.length - 1].v, 0), start = series.reduce((s, x) => s + x.pts[0].v, 0);
-    body = `<svg viewBox="0 0 ${W} ${H}" width="100%" role="img" aria-label="Account balance progress">${grid}${totalLine}${lines}</svg>
+    body = `<svg viewBox="0 0 ${W} ${H}" width="100%" role="img" aria-label="Account balance progress">${grid}${guide}${totalLine}${lines}${pills}</svg>
       <div class="stat-line"><span>${series.length} account(s)</span><span>Combined ${money(now)} · ${money(now - start)}</span></div>
       <div style="margin-top:8px">${legend}</div>`;
   }
