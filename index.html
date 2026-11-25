@@ -404,6 +404,7 @@ function normalizeSet(raw){
   s.accounts = (s.accounts || []).map(a => { const x = Object.assign({days:DAYS.slice(), share:100, risk:1}, a); if (!Array.isArray(x.weeks)) x.weeks = x.week ? [x.week] : []; delete x.week; return x; });
   s.custom = (s.custom || []).map(c => Object.assign({type:'radio', options:['yes','no'], req:true}, c));
   s.qLabels = s.qLabels || {};
+  s.ledger = s.ledger || [];
   migrateSettings(s);
   s.optLabels = s.optLabels || {};
   s.qOrder = s.qOrder || [];
@@ -533,7 +534,7 @@ const POST_LABELS = {
   nearPipsVal:'Pips short of TP', well:'What went well', wrong:'What went wrong', improve:'What to improve', lesson:'Lesson',
   moreAccounts:'More accounts than suggested', moreAccountsWhich:'Which accounts'
 };
-const PSECS = [['profile','Profile'],['accounts','Propfirm accounts'],['plan','Week plan'],['checklist','Checklist builder'],['risk','Risk rules'],['grading','Grading criteria'],['rules','Trade rules'],['news','News'],['global','Global settings']];
+const PSECS = [['profile','Profile'],['money','Money ledger'],['accounts','Propfirm accounts'],['plan','Week plan'],['checklist','Checklist builder'],['risk','Risk rules'],['grading','Grading criteria'],['rules','Trade rules'],['news','News'],['global','Global settings']];
 const defaultWeek = () => Math.min(5, Math.ceil(new Date().getDate() / 7));
 const DEF_SET = () => ({
   profile:{name:'',email:''},
@@ -573,6 +574,7 @@ const DEF_SET = () => ({
   rules:["Don't get out early. Price has hit TP after I exited early before.","SL at a valid swing invalidation area.","Always trust my setup.","Have patience."],
   newsList:['Non-Farm Payrolls','US CPI','FOMC rate decision','Fed Chair press conference','ECB rate decision','ECB press conference','BoE rate decision','UK CPI','Eurozone CPI','US GDP','US Retail Sales','ISM Manufacturing PMI','Initial Jobless Claims','Core PCE'],
   newsCal:[],
+  ledger:[],
   activeWeek:defaultWeek(),
   maxTrades:2, minRR:1.25, nearPips:3
 });
@@ -586,6 +588,7 @@ function loadSet(){
       // Older yes/no items become single-choice questions with yes/no options.
       s.custom = (s.custom || []).map(c => Object.assign({type:'radio', options:['yes','no'], req:true}, c));
       s.qLabels = s.qLabels || {};
+      s.ledger = s.ledger || [];
       migrateSettings(s);
       s.optLabels = s.optLabels || {};
       s.qOrder = s.qOrder || [];
@@ -1706,6 +1709,7 @@ function profileSection(){
     }
     case 'accounts':
       return accountsSection();
+    case 'money': return moneySection();
     case 'plan': return weekPlanSection();
     case 'checklist': return checklistSection();
     case 'risk': return riskSection();
@@ -1883,6 +1887,86 @@ function showTab(t){
   render();
 }
 
+// ---- Money ledger (Profile) ----
+const LEDGER_TYPES = {
+  profit:{label:'Trade profit', sign:1}, loss:{label:'Trade loss', sign:-1}, fee:{label:'Fee', sign:-1},
+  account:{label:'Account purchase', sign:-1}, payout:{label:'Payout received', sign:1},
+  deposit:{label:'Deposit to platform', sign:0}, withdrawal:{label:'Withdrawal to bank', sign:0}
+};
+const LEDGER_PLATFORMS = ['Binance','Bitget','Quotex','Prop firm','Bank','Other'];
+// Manual entries plus closed (non-sample) forex trades from the journal. Signed = effect on P&L in USD.
+function ledgerRows(){
+  const manual = (SET.ledger || []).map(e => {
+    const sgn = LEDGER_TYPES[e.type] ? LEDGER_TYPES[e.type].sign : 0, amt = +e.amount || 0;
+    return {...e, src:'manual', amount:amt, signed:sgn * amt};
+  });
+  const journal = LOG.filter(x => x.action === 'trade' && x.result !== 'open' && !x.sample && x.R != null).flatMap(t =>
+    (t.accountsUsed || []).filter(u => u.riskUsd != null).map(u => {
+      const usd = t.R * u.riskUsd;
+      return {id: t.id + '-' + u.id, date: String(t.ts).slice(0, 10), platform:'Forex (journal)', type: usd >= 0 ? 'profit' : 'loss',
+        amount: Math.abs(usd), signed: usd, src:'journal', note: (t.pair || '') + ' · ' + (t.result || '')};
+    }));
+  return [...manual, ...journal].sort((a, b) => String(b.date).localeCompare(String(a.date)));
+}
+function ledgerTotals(rows){
+  const of = types => rows.filter(r => types.includes(r.type));
+  return {
+    tradeNet: sum(of(['profit','loss','fee']).map(r => r.signed)),
+    accounts: sum(of(['account']).map(r => r.amount)),
+    payouts: sum(of(['payout']).map(r => r.amount)),
+    deposits: sum(of(['deposit']).map(r => r.amount)),
+    withdrawals: sum(of(['withdrawal']).map(r => r.amount)),
+    forex: sum(rows.filter(r => r.src === 'journal').map(r => r.signed)),
+    allIn: sum(rows.map(r => r.signed))
+  };
+}
+function moneySection(){
+  const rows = ledgerRows(), t = ledgerTotals(rows);
+  const cls = n => n < 0 ? 'neg' : n > 0 ? 'pos' : '';
+  const card = (l, v, c) => `<div class="tile"><p class="label" style="margin-bottom:8px">${l}</p><div class="big ${c || ''}">${v}</div></div>`;
+  const tiles = `<div class="tiles3" style="margin-bottom:14px">${card('Net P&amp;L, all-in', money(t.allIn), cls(t.allIn))}${card('Trading only', money(t.tradeNet), cls(t.tradeNet))}${card('Account ROI', t.accounts ? fmtPct((t.payouts - t.accounts) / t.accounts) : '—', cls(t.payouts - t.accounts))}</div>
+    <div class="tiles3" style="margin-bottom:14px">${card('Spent on accounts', money(t.accounts))}${card('Payouts received', money(t.payouts))}${card('Forex from journal', money(t.forex), cls(t.forex))}</div>
+    <div class="tiles3">${card('Deposited to platforms', money(t.deposits))}${card('Withdrawn to bank', money(t.withdrawals))}${card('Entries', rows.length)}</div>`;
+  const opts = (list, cur) => list.map(([v, l]) => `<option value="${esc(v)}" ${v === cur ? 'selected' : ''}>${esc(l)}</option>`).join('');
+  const form = `<div class="g3">
+      <label class="field"><span class="label">Date</span><input class="inline" type="date" id="lDate" value="${ymd()}"></label>
+      <label class="field"><span class="label">Platform</span><select class="inline" id="lPlat">${LEDGER_PLATFORMS.map(p => `<option>${esc(p)}</option>`).join('')}</select></label>
+      <label class="field"><span class="label">Type</span><select class="inline" id="lType">${opts(Object.entries(LEDGER_TYPES).map(([k, v]) => [k, v.label]), 'loss')}</select></label>
+    </div>
+    <div class="g3" style="margin-top:12px">
+      <label class="field"><span class="label">Amount (USD)</span><input class="inline" type="number" step="0.01" min="0" id="lAmt"></label>
+      <label class="field"><span class="label">Prop firm (for accounts and payouts)</span><input class="inline" id="lFirm" placeholder="e.g. Blue Guardian"></label>
+      <label class="field"><span class="label">Account size (USD)</span><input class="inline" type="number" min="0" id="lSize"></label>
+    </div>
+    <div class="g2" style="margin-top:12px;align-items:end">
+      <label class="field"><span class="label">Note</span><input class="inline" id="lNote" placeholder="Optional"></label>
+      <div class="btns" style="justify-content:flex-end"><button type="button" class="btn sm" data-pact="addLedger">Add entry</button></div>
+    </div>
+    <p class="msg" id="lMsg" style="margin-top:10px;color:#B42318"></p>`;
+  const platMap = {};
+  rows.forEach(r => { platMap[r.platform] = platMap[r.platform] || {n:0, net:0}; platMap[r.platform].n++; platMap[r.platform].net += r.signed; });
+  const platRows = Object.entries(platMap).sort((a, b) => b[1].net - a[1].net).map(([p, v]) =>
+    `<div class="planrow"><span style="font-weight:600">${esc(p)}</span><span class="msg">${v.n} entr${v.n === 1 ? 'y' : 'ies'}</span><span class="val ${cls(v.net)}">${money(v.net)}</span></div>`).join('') || '<p class="msg">No entries yet.</p>';
+  const monthMap = {};
+  rows.forEach(r => { const m = String(r.date).slice(0, 7); monthMap[m] = (monthMap[m] || 0) + r.signed; });
+  const monthRows = Object.entries(monthMap).sort((a, b) => b[0].localeCompare(a[0])).map(([m, v]) =>
+    `<div class="planrow"><span>${esc(m)}</span><span class="val ${cls(v)}">${money(v)}</span></div>`).join('') || '<p class="msg">No months yet.</p>';
+  const list = rows.map(r => {
+    const label = LEDGER_TYPES[r.type] ? LEDGER_TYPES[r.type].label : r.type;
+    const shown = r.src === 'manual' && (r.type === 'deposit' || r.type === 'withdrawal') ? r.amount : r.signed;
+    const detail = [r.firm ? esc(r.firm) + (r.size ? ' $' + (r.size / 1000) + 'K' : '') : '', r.note ? esc(r.note) : '', r.src === 'journal' ? 'From trade journal' : ''].filter(Boolean).join(' · ');
+    return `<div class="planrow"><span style="min-width:0"><b>${esc(r.date)}</b> · ${esc(r.platform)} · ${esc(label)}${detail ? `<br><span class="msg">${detail}</span>` : ''}</span>
+      <span style="display:flex;gap:12px;align-items:center"><span class="val ${cls(shown)}">${money(shown)}</span>${r.src === 'manual' ? `<button type="button" class="btn light sm" data-pact="delLedger" data-id="${esc(r.id)}">Remove</button>` : ''}</span></div>`;
+  }).join('') || '<p class="msg">No entries yet. Add your first one below.</p>';
+  return `<div class="card"><p class="label" style="font-size:15px;color:var(--ink);font-weight:600;margin-bottom:6px">Money ledger</p>
+      <p class="msg" style="margin-bottom:16px">Every dollar in USD. Net P&amp;L (all-in) includes trade results, fees, account costs and payouts. Deposits and withdrawals are transfers, so they are not counted as profit. Forex trades come from the journal automatically.</p>
+      ${tiles}</div>
+    <div class="card"><p class="label" style="font-size:15px;color:var(--ink);font-weight:600;margin-bottom:14px">Add an entry</p>${form}</div>
+    <div class="g2" style="align-items:start"><div class="card"><p class="label" style="font-size:15px;color:var(--ink);font-weight:600;margin-bottom:8px">By platform</p>${platRows}</div>
+      <div class="card"><p class="label" style="font-size:15px;color:var(--ink);font-weight:600;margin-bottom:8px">By month</p>${monthRows}</div></div>
+    <div class="card"><p class="label" style="font-size:15px;color:var(--ink);font-weight:600;margin-bottom:8px">Ledger</p>${list}</div>`;
+}
+
 document.addEventListener('click', e => {
   if (e.target.closest('#loginSend')) return sendLink();
   if (e.target.closest('#railToggle')) { S.railOpen = !S.railOpen; return render(); }
@@ -2050,6 +2134,16 @@ document.addEventListener('click', e => {
       SET.newsCal.push({id:uid(), date, time: allDay ? '' : time, allDay, ccy:document.getElementById('calCcy').value, name:document.getElementById('calName').value});
     }
     if (a === 'delCal') SET.newsCal.splice(+pact.dataset.i, 1);
+    if (a === 'addLedger') {
+      const v = id => document.getElementById(id).value.trim();
+      const msg = t => { document.getElementById('lMsg').textContent = t; };
+      const amt = parseFloat(v('lAmt'));
+      if (!v('lDate')) return msg('Pick a date.');
+      if (!(amt > 0)) return msg('Enter an amount greater than zero.');
+      SET.ledger = SET.ledger || [];
+      SET.ledger.push({id:uid(), date:v('lDate'), platform:v('lPlat'), type:v('lType'), amount:amt, firm:v('lFirm'), size:parseFloat(v('lSize')) || 0, note:v('lNote')});
+    }
+    if (a === 'delLedger') SET.ledger = (SET.ledger || []).filter(e => e.id !== pact.dataset.id);
     saveAll(); return render();
   }
   const alarm = e.target.closest('[data-act="alarm-on"]');
