@@ -2067,7 +2067,7 @@ document.addEventListener('click', e => {
     if (pk.dataset.pk === 'newsNext' && pkv === 'none') S.pre.newsNextType = '';
     S.msg = ''; return render();
   }
-  const pm = e.target.closest('[data-pmulti]');
+  const pm = e.target.closest('[data-pmulti]:not([data-sc])');
   if (pm) {
     const key = pm.dataset.pm;
     let arr = Array.isArray(S.pre[key]) ? S.pre[key].slice() : [];
