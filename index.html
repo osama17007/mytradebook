@@ -1170,7 +1170,15 @@ function renderPost(){
   else {
     const a = t.post.a;
     sumEl.innerHTML = '<p class="label" style="margin-bottom:8px">Saved review · ' + when(t.post.ts) + '</p><div class="summary">' +
-      Object.keys(a).filter(k => has(a[k])).map(k => `<div><span>${esc(POST_LABELS[k] || k)}</span><b style="text-align:right;max-width:60%">${esc(Array.isArray(a[k]) ? a[k].join(', ') : a[k])}</b></div>`).join('') + '</div>';
+      Object.keys(a).filter(k => has(a[k])).map(k => {
+        let val = a[k], lbl = POST_LABELS[k] || k;
+        if (k === 'balances') {
+          lbl = 'Account balances';
+          val = Object.entries(a[k]).map(([id, v]) => { const x = SET.accounts.find(y => y.id === id); return (x ? x.firm + ' · ' + x.number : id) + ': ' + money(+v); }).join(', ');
+        } else if (Array.isArray(val)) val = val.join(', ');
+        else if (typeof val === 'object') val = JSON.stringify(val);
+        return `<div><span>${esc(lbl)}</span><b style="text-align:right;max-width:60%">${esc(String(val))}</b></div>`;
+      }).join('') + '</div>';
   }
 }
 
