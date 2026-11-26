@@ -1919,19 +1919,13 @@ const LEDGER_TYPES = {
   deposit:{label:'Deposit to platform', sign:0}, withdrawal:{label:'Withdrawal to bank', sign:0}
 };
 const LEDGER_PLATFORMS = ['Binance','Bitget','Quotex','Prop firm','Bank','Other'];
-// Manual entries plus closed (non-sample) forex trades from the journal. Signed = effect on P&L in USD.
+// Manual entries only. Journal trades are not included: those accounts are challenges, not live money. Signed = effect on P&L in USD.
 function ledgerRows(){
   const manual = (SET.ledger || []).map(e => {
     const sgn = LEDGER_TYPES[e.type] ? LEDGER_TYPES[e.type].sign : 0, amt = +e.amount || 0;
     return {...e, src:'manual', amount:amt, signed:sgn * amt};
   });
-  const journal = LOG.filter(x => x.action === 'trade' && x.result !== 'open' && !x.sample && x.R != null).flatMap(t =>
-    (t.accountsUsed || []).filter(u => u.riskUsd != null).map(u => {
-      const usd = t.R * u.riskUsd;
-      return {id: t.id + '-' + u.id, date: String(t.ts).slice(0, 10), platform:'Forex (journal)', type: usd >= 0 ? 'profit' : 'loss',
-        amount: Math.abs(usd), signed: usd, src:'journal', note: (t.pair || '') + ' · ' + (t.result || '') + (t.offPlan ? ' · off-plan' : '')};
-    }));
-  return [...manual, ...journal].sort((a, b) => String(b.date).localeCompare(String(a.date)));
+  return manual.sort((a, b) => String(b.date).localeCompare(String(a.date)));
 }
 function ledgerTotals(rows){
   const of = types => rows.filter(r => types.includes(r.type));
@@ -1941,7 +1935,6 @@ function ledgerTotals(rows){
     payouts: sum(of(['payout']).map(r => r.amount)),
     deposits: sum(of(['deposit']).map(r => r.amount)),
     withdrawals: sum(of(['withdrawal']).map(r => r.amount)),
-    forex: sum(rows.filter(r => r.src === 'journal').map(r => r.signed)),
     allIn: sum(rows.map(r => r.signed))
   };
 }
@@ -1950,7 +1943,7 @@ function moneySection(){
   const cls = n => n < 0 ? 'neg' : n > 0 ? 'pos' : '';
   const card = (l, v, c) => `<div class="tile"><p class="label" style="margin-bottom:8px">${l}</p><div class="big ${c || ''}">${v}</div></div>`;
   const tiles = `<div class="tiles3" style="margin-bottom:14px">${card('Net P&amp;L, all-in', money(t.allIn), cls(t.allIn))}${card('Trading only', money(t.tradeNet), cls(t.tradeNet))}${card('Account ROI', t.accounts ? fmtPct((t.payouts - t.accounts) / t.accounts) : '—', cls(t.payouts - t.accounts))}</div>
-    <div class="tiles3" style="margin-bottom:14px">${card('Spent on accounts', money(t.accounts))}${card('Payouts received', money(t.payouts))}${card('Forex from journal', money(t.forex), cls(t.forex))}</div>
+    <div class="tiles3" style="margin-bottom:14px">${card('Spent on accounts', money(t.accounts))}${card('Payouts received', money(t.payouts))}${card('Deposits', money(t.deposits))}</div>
     <div class="tiles3">${card('Deposited to platforms', money(t.deposits))}${card('Withdrawn to bank', money(t.withdrawals))}${card('Entries', rows.length)}</div>`;
   const form = ledgerFields('l', {date: ymd(), platform: 'Binance', type: 'loss', amount: '', firm: '', size: '', note: ''},
     `<label class="field"><span class="label">Quantity (same-size bundle)</span><input class="inline" type="number" min="1" max="50" step="1" id="lQty" value="1"></label>`) +
@@ -1967,7 +1960,7 @@ function moneySection(){
   const list = rows.map(r => {
     const label = LEDGER_TYPES[r.type] ? LEDGER_TYPES[r.type].label : r.type;
     const shown = r.src === 'manual' && (r.type === 'deposit' || r.type === 'withdrawal') ? r.amount : r.signed;
-    const detail = [r.firm ? esc(r.firm) + (r.size ? ' $' + (r.size / 1000) + 'K' : '') : '', r.note ? esc(r.note) : '', r.src === 'journal' ? 'From trade journal' : ''].filter(Boolean).join(' · ');
+    const detail = [r.firm ? esc(r.firm) + (r.size ? ' $' + (r.size / 1000) + 'K' : '') : '', r.note ? esc(r.note) : ''].filter(Boolean).join(' · ');
     return `<div class="planrow"><span style="min-width:0"><b>${esc(r.date)}</b> · ${esc(r.platform)} · ${esc(label)}${detail ? `<br><span class="msg">${detail}</span>` : ''}</span>
       <span style="display:flex;gap:12px;align-items:center"><span class="val ${cls(shown)}">${money(shown)}</span>${r.src === 'manual' ? `<button type="button" class="btn light sm" data-pact="editLedger" data-id="${esc(r.id)}">Edit</button>` : ''}</span></div>`;
   }).join('') || '<p class="msg">No entries yet. Add your first one below.</p>';
