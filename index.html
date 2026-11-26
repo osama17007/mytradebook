@@ -847,7 +847,9 @@ function activeAccounts(){
   const grade = gradeOf(S.pre).grade;
   const newsHit = S.pre.newsCur === 'high' || S.pre.newsNext === 'high';
   const day = todayDay();
-  return SET.accounts.filter(a => inWeek(a, SET.activeWeek)).map(a => {
+  const offIds = (S.offPlan && S.offPlan.ids) || [];
+  const skipped = S.skipAcc || [];
+  return SET.accounts.filter(a => inWeek(a, SET.activeWeek) || offIds.includes(a.id)).map(a => {
     const risk = +a.risk || 0;
     const capital = riskBase(a) * clampShare(a.share) / 100;
     const riskUsd = capital * risk / 100;
@@ -865,7 +867,7 @@ function activeAccounts(){
       if (lots <= 0 && ok) { ok = false; msg = 'Lot size rounds to 0 at this risk'; }
       comm = lots * a.commission;
     }
-    return {acc:a, risk, capital, riskUsd, rule, ok, msg, lots, comm};
+    return {acc:a, risk, capital, riskUsd, rule, ok, msg, lots, comm, off: !inWeek(a, SET.activeWeek), skipped: skipped.includes(a.id)};
   });
 }
 
@@ -879,16 +881,17 @@ function readiness(){
   else if (g.grade === 'U') block = 'Setup does not meet A+ or B';
   else if (!pc.ok) block = pc.msg;
   else if (!acc.length) block = 'No accounts assigned to ' + weekLabel(SET.activeWeek);
-  else if (!acc.some(a => a.ok)) block = 'No account in ' + weekLabel(SET.activeWeek) + ' is tradable now';
+  else if (!acc.some(a => a.ok && !a.skipped)) block = 'No selected account is tradable now';
+  else if (acc.some(a => a.off && a.ok && !a.skipped) && !((S.offPlan && S.offPlan.reason) || '').trim()) block = 'Give a reason for trading off-plan accounts';
   else if (n >= SET.maxTrades) block = 'Daily trade limit reached';
-  return {v, g, pc, acc, n, block, ok: !block};
+  return {v, g, pc, acc, tradeAcc: acc.filter(a => a.ok && !a.skipped), n, block, ok: !block};
 }
 
 function openTrades(){ return LOG.filter(x => x.action === 'trade' && x.result === 'open'); }
 function tradesNewest(){ return LOG.filter(x => x.action === 'trade').sort((a,b) => new Date(b.ts) - new Date(a.ts)); }
 
 function resetPre(){
-  S = Object.assign(S, { bias:'clear', smallOK:false, dir:null, dxy:null, str:{eur:null,gbp:null}, cmp:null, eurgbp:null, pairPick:null, plan:{entry:'',sl:'',tp:''}, pre:{} });
+  S = Object.assign(S, { bias:'clear', smallOK:false, dir:null, dxy:null, str:{eur:null,gbp:null}, cmp:null, eurgbp:null, pairPick:null, plan:{entry:'',sl:'',tp:''}, pre:{}, offPlan:{ids:[],reason:''}, skipAcc:[] });
 }
 
 // ---- checklist rendering ----
@@ -970,7 +973,13 @@ function renderSizing(rd){
   const el = document.getElementById('sizing');
   if (rd.v.pair && CALC_PAIRS.includes(rd.v.pair)) S.calcPair = rd.v.pair;
   const pc = rd.pc, rows = rd.acc;
-  const totalLots = sum(rows.filter(x => x.ok && x.lots != null).map(x => x.lots));
+  const offIds = (S.offPlan && S.offPlan.ids) || [];
+  const offCands = SET.accounts.filter(a => !inWeek(a, SET.activeWeek) && a.state !== 'Breached' && a.state !== 'Passed');
+  const offPanel = offCands.length ? `<div class="field" style="margin-top:16px"><span class="qtext">Off-plan accounts (not in ${weekLabel(SET.activeWeek)})</span>
+      <p class="msg">Tick an account only if you traded it today outside the week plan. Those trades are tagged Off-plan and shown separately in stats.</p>
+      ${offCands.map(a => `<label class="check"><input type="checkbox" data-offacc="${a.id}" ${offIds.includes(a.id) ? 'checked' : ''}> ${esc(a.firm)} · ${esc(a.number)} · ${esc(a.state)}</label>`).join('')}
+      <label class="field"><span class="label">Reason for trading off-plan</span><input class="inline" data-offreason value="${esc((S.offPlan && S.offPlan.reason) || '')}" placeholder="e.g. Setup looked strong, account already open"></label></div>` : '';
+  const totalLots = sum(rd.tradeAcc.filter(x => x.lots != null).map(x => x.lots));
   const stopTxt = pc.slPips ? pc.slPips.toFixed(1) + ' pips' : '—';
   el.innerHTML = `<div class="step-head"><span class="num">3</span><span class="step-title">Entry, stop, target and sizing</span></div>
     <div class="setup-body">
@@ -989,16 +998,16 @@ function renderSizing(rd){
       </div>
       <p class="msg">${esc(pc.msg)}. Lots = balance × share % × risk % ÷ (stop pips × $${PIP_VALUE_PER_LOT.toFixed(2)}). Both pairs are USD-quoted, so the pip value is the same.</p>
     </div>
-    ${rows.length ? `<table class="table center" style="margin-top:16px"><thead><tr><th>Account</th><th>Risk</th><th>Recommended</th><th>Risk $</th><th>Lots</th><th>Commission</th><th>Status</th></tr></thead><tbody>
+    ${offPanel}${rows.length ? `<table class="table center" style="margin-top:16px"><thead><tr><th>Account</th><th>Risk</th><th>Recommended</th><th>Risk $</th><th>Lots</th><th>Commission</th><th>Status</th></tr></thead><tbody>
       ${rows.map(x => `<tr><td><b>${esc(x.acc.firm)}</b><br><span class="msg">${esc(x.acc.number)} · ${esc(x.acc.label)}</span></td>
         <td>${x.risk}%</td><td>${recText(x)}</td><td>${money(x.riskUsd)}</td><td class="val">${x.lots == null ? '—' : x.lots.toFixed(2)}</td><td>${x.comm == null ? '—' : money(x.comm)}</td>
-        <td><span class="chip ${x.ok ? 'ok' : 'stop'}">${esc(x.msg)}</span></td></tr>`).join('')}
+        <td>${x.ok ? `<button type="button" class="chip ${x.skipped ? '' : 'ok'}" data-skipacc="${x.acc.id}" aria-pressed="${!x.skipped}">${x.skipped ? 'Skipped, click to trade' : 'Trading, click to skip'}</button>` : `<span class="chip stop">${esc(x.msg)}</span>`}${x.off ? ' <span class="chip">Off-plan</span>' : ''}</td></tr>`).join('')}
     </tbody></table>` : `<p class="msg" style="margin-top:16px">No accounts in ${weekLabel(SET.activeWeek)}. Assign them in Profile → Week plan.</p>`}`;
 }
 
 function renderWeekPanel(rd){
   const wk = SET.activeWeek;
-  const rows = rd.acc;
+  const rows = rd.acc.filter(x => !x.off);
   const ready = rows.filter(x => x.ok);
   const totalRisk = sum(ready.map(x => x.risk));
   const totalLots = sum(ready.filter(x => x.lots != null).map(x => x.lots));
@@ -1068,7 +1077,7 @@ function renderVerdict(rd){
   const el = document.getElementById('verdict');
   if (S.stage !== 'pre') { el.innerHTML = '<p class="label" style="margin-bottom:12px">Actions</p><div class="btns"><button class="btn light" data-act="reset">Reset checklist</button></div>'; return; }
   const title = rd.ok ? 'Take the trade' : 'Not ready';
-  const sub = rd.ok ? `${rd.v.pair} ${pairName(S.dir)} · Grade ${rd.g.grade === 'A' ? 'A+' : 'B'} · ${rd.acc.filter(a => a.ok).length} account(s)` : rd.block;
+  const sub = rd.ok ? `${rd.v.pair} ${pairName(S.dir)} · Grade ${rd.g.grade === 'A' ? 'A+' : 'B'} · ${rd.tradeAcc.length} account(s)` : rd.block;
   el.innerHTML = `<p class="label" style="margin-bottom:6px">Verdict</p>
     <h2 class="verdict-title">${esc(title)}</h2>
     <p class="muted" style="margin:0">${esc(sub)}</p>
@@ -1259,7 +1268,7 @@ function renderLog(){
     const cls = x.R > 0 ? 'pos' : x.R < 0 ? 'neg' : '';
     return `<button class="row" data-entry="${x.id}" aria-current="${S.sel === x.id}">
       <span class="dot" style="background:${color}"></span>
-      <span><span style="font-weight:600">${esc(x.pair)}</span> <span style="color:var(--muted)">${x.action === 'trade' ? pairName(x.dir) : ''}${x.grade ? ' · ' + (x.grade === 'A' ? 'A+' : x.grade === 'B' ? 'B' : 'Ungraded') : ''} · ${when(x.ts)}</span></span>
+      <span><span style="font-weight:600">${esc(x.pair)}</span> <span style="color:var(--muted)">${x.action === 'trade' ? pairName(x.dir) : ''}${x.grade ? ' · ' + (x.grade === 'A' ? 'A+' : x.grade === 'B' ? 'B' : 'Ungraded') : ''} · ${when(x.ts)}${x.offPlan ? ' · <b style="color:#B42318">Off-plan</b>' : ''}</span></span>
       <span class="val ${cls}">${label}</span></button>`;
   }).join('') : '<p class="msg">Nothing here yet.</p>';
   renderDrawer();
@@ -1408,12 +1417,17 @@ function renderStats(){
   const nearMiss = reviewed.filter(x => x.post.a.nearMiss === 'yes').length;
   const extraAcc = reviewed.filter(x => x.post.a.moreAccounts === 'yes').length;
   const accountsUsed = trades.reduce((s,x) => s + ((x.accountsUsed || []).length), 0);
+  const offTrades = trades.filter(x => x.offPlan);
+  const adherent = trades.filter(x => !x.offPlan && !(x.missedPlanned || []).length);
+  const adherence = trades.length ? adherent.length / trades.length : null;
+  const missedCount = trades.reduce((s,x) => s + (x.missedPlanned || []).length, 0);
+  const offUsd = sum(offTrades.filter(x => x.R != null && x.result !== 'open').flatMap(x => (x.accountsUsed || []).filter(u => u.off && u.riskUsd != null).map(u => x.R * u.riskUsd)));
   const tile = (l, v, s='') => `<div class="tile"><p class="label" style="margin-bottom:8px">${l}</p><div class="big">${v}${s ? ` <small>${s}</small>` : ''}</div></div>`;
   document.getElementById('tiles').innerHTML =
     tile('Decisions', LOG.length) + tile('Trades taken', trades.length) + tile('Skip rate', fmtPct(skipRate)) +
     tile('Win rate', fmtPct(winRate), closed.length ? closed.length + ' closed' : '') + tile('Average R', avgR == null ? '—' : fmtR(avgR)) +
     tile('Expectancy', exp == null ? '—' : fmtR(exp), 'per trade') +
-    tile('Near-miss TP', nearMiss) + tile('Trades with a rule break', breaks) + tile('Extra-account trades', extraAcc) +
+    tile('Near-miss TP', nearMiss) + tile('Trades with a rule break', breaks) + tile('Plan adherence', fmtPct(adherence), missedCount + ' planned account(s) missed') + tile('Off-plan trades', offTrades.length, offTrades.length ? money(offUsd) + ' P&L' : '') + tile('Extra-account trades', extraAcc) +
     tile('Account entries', accountsUsed) + tile('Reviewed', reviewed.length + ' / ' + trades.length) + tile('Open trades', openTrades().length);
 
   const pts = [0]; let cum = 0;
@@ -1907,7 +1921,7 @@ function ledgerRows(){
     (t.accountsUsed || []).filter(u => u.riskUsd != null).map(u => {
       const usd = t.R * u.riskUsd;
       return {id: t.id + '-' + u.id, date: String(t.ts).slice(0, 10), platform:'Forex (journal)', type: usd >= 0 ? 'profit' : 'loss',
-        amount: Math.abs(usd), signed: usd, src:'journal', note: (t.pair || '') + ' · ' + (t.result || '')};
+        amount: Math.abs(usd), signed: usd, src:'journal', note: (t.pair || '') + ' · ' + (t.result || '') + (t.offPlan ? ' · off-plan' : '')};
     }));
   return [...manual, ...journal].sort((a, b) => String(b.date).localeCompare(String(a.date)));
 }
@@ -2017,6 +2031,8 @@ document.addEventListener('click', e => {
   }
   const cp = e.target.closest('[data-calcpair]');
   if (cp) { S.calcPair = cp.dataset.pv; return render(); }
+  const sk = e.target.closest('[data-skipacc]');
+  if (sk) { const id = sk.dataset.skipacc; const cur = S.skipAcc || []; S.skipAcc = cur.includes(id) ? cur.filter(x => x !== id) : cur.concat([id]); return render(); }
   const lg = e.target.closest('[data-legend]');
   if (lg) { S.legendOpen = !S.legendOpen; return render(); }
   const gt = e.target.closest('[data-gtoggle]');
@@ -2201,10 +2217,12 @@ document.addEventListener('click', e => {
     const rd = readiness();
     if (!rd.ok) return;
     const id = uid();
-    const used = rd.acc.filter(x => x.ok).map(x => ({id:x.acc.id, firm:x.acc.firm, number:x.acc.number, risk:x.risk, lots:x.lots, comm:x.comm, riskUsd:x.riskUsd, capital:x.capital}));
+    const used = rd.tradeAcc.map(x => ({id:x.acc.id, firm:x.acc.firm, number:x.acc.number, risk:x.risk, lots:x.lots, comm:x.comm, riskUsd:x.riskUsd, capital:x.capital, off:!!x.off}));
+    const missed = rd.acc.filter(x => !x.off && x.ok && x.skipped).map(x => ({firm:x.acc.firm, number:x.acc.number}));
+    const isOff = used.some(u => u.off);
     LOG.unshift({ id, ts:new Date().toISOString(), action:'trade', pair:rd.v.pair, dir:S.dir, grade:rd.g.grade, reason:'',
       entry:+S.plan.entry, sl:+S.plan.sl, tp:+S.plan.tp, rr:+rd.pc.rr.toFixed(2), R:null, result:'open',
-      pre:JSON.parse(JSON.stringify(S.pre)), accountsUsed:used, rulesChecked:[], during:[], fibReached:null, ended:false });
+      pre:JSON.parse(JSON.stringify(S.pre)), accountsUsed:used, offPlan:isOff, offPlanReason:isOff ? (S.offPlan.reason || '').trim() : '', missedPlanned:missed, rulesChecked:[], during:[], fibReached:null, ended:false });
     saveAll(); S.tid = id; S.stage = 'during'; resetPre();
     S.msg = 'Entry taken. Check in during the trade.';
     return render();
@@ -2260,6 +2278,8 @@ document.addEventListener('change', e => {
   if (t.matches('input[type="checkbox"][data-smallok]')) return;
   if (t.matches('[data-accf]')) { if (t.dataset.accf === 'sort') S.accSort = t.value; else S.accFilter[t.dataset.accf] = t.value; return render(); }
   if (t.matches('[data-accsel]')) { S.accSel[t.dataset.accsel] = t.checked; return render(); }
+  if (t.matches('[data-offacc]')) { S.offPlan = S.offPlan || {ids:[], reason:''}; const id = t.dataset.offacc; const cur = S.offPlan.ids || []; S.offPlan.ids = t.checked ? cur.concat([id]) : cur.filter(x => x !== id); return render(); }
+  if (t.matches('[data-offreason]')) { S.offPlan = S.offPlan || {ids:[], reason:''}; S.offPlan.reason = t.value; return render(); }
   if (t.matches('[data-accall]')) { accShown().forEach(({a}) => { S.accSel[a.id] = t.checked; }); return render(); }
   if (t.matches('[data-sf]')) { S.stat[t.dataset.sf] = t.type === 'checkbox' ? t.checked : t.value; return render(); }
   if (t.matches('[data-ctext]')) { S.pre.custom = S.pre.custom || {}; S.pre.custom[t.dataset.ctext] = t.value; return render(); }
