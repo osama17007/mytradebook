@@ -361,6 +361,7 @@ svg line{stroke-dasharray:none}
         <div class="card" id="balanceCard"></div>
         <div class="grid2">
           <div class="card"><p class="label" style="margin:0 0 14px">By grade</p><div class="bars" id="grades"></div></div>
+          <div class="card"><p class="label" style="margin:0 0 14px">A+ vs B</p><div id="gradeCompare"></div></div>
           <div class="card"><p class="label" style="margin:0 0 14px">By pair</p><div class="bars" id="pairs"></div></div>
           <div class="card"><p class="label" style="margin:0 0 14px">News in the setup</p><div class="list" id="news"></div></div>
           <div class="card"><p class="label" style="margin:0 0 14px">Skip reasons</p><div class="list" id="reasons"></div></div>
@@ -1408,6 +1409,29 @@ function pillLabel(x, y, text, sub, W){
     <text x="${(rx + 14).toFixed(1)}" y="${ry + 20}" style="fill:#111210;font-size:13px;font-weight:600">${text}</text>${badge}`;
 }
 
+// A+ vs B: win rate and average R side by side (closed trades only).
+function gradeCompare(){
+  const el = document.getElementById('gradeCompare'); if (!el) return;
+  const closed = LOG.filter(x => x.action === 'trade' && x.R != null && x.result !== 'open');
+  const G = [['A','A+','var(--accent)'],['B','B','#9CA0A8']].map(([g,l,c]) => {
+    const set = closed.filter(x => x.grade === g), w = set.filter(x => x.R > 0).length;
+    return {l, c, n: set.length, wr: set.length ? w / set.length : 0, avg: set.length ? sum(set.map(x => x.R)) / set.length : 0};
+  });
+  if (!G.some(g => g.n)) { el.innerHTML = '<p class="msg">No closed A+ or B trades yet.</p>'; return; }
+  const chart = (title, key, max, fmt) => {
+    const W = 300, H = 200, base = 100, span = 70;
+    const bar = (x, g) => {
+      const v = g[key], h = Math.min(Math.abs(v) / max, 1) * span;
+      const y = v >= 0 ? base - h : base, ly = v >= 0 ? base - h - 8 : base + h + 16;
+      return `<rect x="${x}" y="${y}" width="72" height="${Math.max(h, 1)}" rx="10" style="fill:${v < 0 ? 'var(--red)' : g.c}"/>
+        <text x="${x + 36}" y="${ly}" text-anchor="middle" style="fill:var(--ink);font-size:13px;font-weight:600">${fmt(v)}</text>
+        <text x="${x + 36}" y="${H - 6}" text-anchor="middle" style="fill:var(--muted);font-size:13px">${g.l} · ${g.n} trades</text>`;
+    };
+    return `<div><p class="label" style="margin-bottom:8px">${title}</p><svg viewBox="0 0 ${W} ${H}" width="100%" role="img" aria-label="${title}: ${G.map(g => g.l + ' ' + fmt(g[key])).join(', ')}">
+      <line x1="20" x2="${W - 20}" y1="${base}" y2="${base}" style="stroke:var(--line)"/>${bar(60, G[0])}${bar(170, G[1])}</svg></div>`;
+  };
+  el.innerHTML = `<div class="g2">${chart('Win rate', 'wr', 1, fmtPct)}${chart('Average R', 'avg', Math.max(...G.map(g => Math.abs(g.avg)), 1), fmtR)}</div>`;
+}
 function renderStats(){
   const trades = LOG.filter(x => x.action === 'trade');
   const skips = LOG.filter(x => x.action === 'skip');
@@ -1466,6 +1490,7 @@ function renderStats(){
     return [g === 'A' ? 'A+' : g === 'B' ? 'B' : 'Ungraded', set.length, set.length ? sum(set.map(x => x.R)) : 0, set.length ? w / set.length : null];
   });
   document.getElementById('grades').innerHTML = statGroup(gradeStats);
+  gradeCompare();
   const pairs = ['EURUSD','GBPUSD'].map(p => {
     const set = closed.filter(x => x.pair === p), w = set.filter(x => x.R > 0).length;
     return [p, set.length, sum(set.map(x => x.R)), set.length ? w / set.length : null];
