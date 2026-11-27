@@ -2403,12 +2403,6 @@ document.addEventListener('drop', e => {
   dragKey = null;
 });
 document.addEventListener('dragend', () => { dragKey = null; });
-setInterval(renderNews, 30000);
-render();
-</script>
-</body>
-</html>
-
 // ---- Edit a recorded trade from the checklist onwards ----
 function snapVet(){
   return { bias:S.bias, smallOK:S.smallOK, dxy:S.dxy, str:{eur:S.str.eur, gbp:S.str.gbp}, cmp:S.cmp, eurgbp:S.eurgbp, pairPick:S.pairPick };
@@ -2452,3 +2446,8 @@ function saveEdit(){
   saveAll(); S.editId = null; resetPre(); S.sel = t.id; S.msg = 'Trade updated.';
   return render();
 }
+setInterval(renderNews, 30000);
+render();
+</script>
+</body>
+</html>
