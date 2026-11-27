@@ -1076,7 +1076,7 @@ function renderOpen(){
 
 function renderVerdict(rd){
   const el = document.getElementById('verdict');
-  if (S.editId) { el.innerHTML = '<p class="label" style="margin-bottom:6px">Editing</p><h2 class="verdict-title">Editing a recorded trade</h2><p class="muted" style="margin:0">Save from here or the bar above.</p><div class="btns"><button class="btn green" data-act="save-edit">Save changes</button><button class="btn light" data-act="cancel-edit">Cancel</button></div>'; return; }
+  if (S.editId) { el.innerHTML = `<p class="label" style="margin-bottom:6px">Editing</p><h2 class="verdict-title">Editing a recorded trade</h2><p class="muted" style="margin:0">Save from here or the bar above.</p>${S.msg ? `<p class="msg" style="color:#B42318;margin:10px 0 0">${esc(S.msg)}</p>` : ''}<div class="btns"><button class="btn green" data-act="save-edit">Save changes</button><button class="btn light" data-act="cancel-edit">Cancel</button></div>`; return; }
   if (S.stage !== 'pre') { el.innerHTML = '<p class="label" style="margin-bottom:12px">Actions</p><div class="btns"><button class="btn light" data-act="reset">Reset checklist</button></div>'; return; }
   const title = rd.ok ? 'Take the trade' : 'Not ready';
   const sub = rd.ok ? `${rd.v.pair} ${pairName(S.dir)} · Grade ${rd.g.grade === 'A' ? 'A+' : 'B'} · ${rd.tradeAcc.length} account(s)` : rd.block;
@@ -2433,7 +2433,7 @@ function saveEdit(){
   if (!t) { S.editId = null; return render(); }
   const rd = readiness(), pc = rd.pc;
   const problem = editProblem(rd);
-  if (problem) { S.msg = problem; return render(); }
+  if (problem) { S.msg = problem; render(); const v = document.getElementById('verdict'); if (v && v.scrollIntoView) v.scrollIntoView({ block: 'center', behavior: 'smooth' }); return; }
   Object.assign(t, { pair: rd.v.pair, dir: S.dir, grade: rd.g.grade, entry: +S.plan.entry, sl: +S.plan.sl, tp: +S.plan.tp, rr: +pc.rr.toFixed(2),
     pre: JSON.parse(JSON.stringify(S.pre)), vet: snapVet() });
   // Accounts keep the risk $ they had at entry; lots and commission follow the new stop.
@@ -2444,7 +2444,7 @@ function saveEdit(){
     if (acc) u.comm = u.lots * acc.commission;
   });
   saveAll(); S.editId = null; resetPre(); S.sel = t.id; S.msg = 'Trade updated.';
-  return render();
+  return showTab('log');
 }
 setInterval(renderNews, 30000);
 render();
