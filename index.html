@@ -1350,7 +1350,7 @@ function renderDrawer(){
       <button class="btn light" data-act="result" data-mode="open" data-id="${x.id}">Mark open</button>
     </div>
     <div class="g2"><input id="customR" type="number" step="0.1" placeholder="Custom R, e.g. 1.4"><button class="btn" data-act="result" data-mode="custom" data-id="${x.id}">Save custom R</button></div>
-    <div class="btns"><button class="btn light" data-act="delete" data-id="${x.id}">Delete entry</button></div></div>
+    <div class="btns"><button class="btn light" data-act="edit-trade" data-id="${x.id}">Edit trade</button><button class="btn light" data-act="delete" data-id="${x.id}">Delete entry</button></div></div>
     ${tradeDetails(x)}`;
 }
 
@@ -1372,13 +1372,13 @@ function pairBars(title, a, b, fmt){
     const h = Math.abs(v) / max * span;
     const y = v >= 0 ? base - h : base;
     const ly = v >= 0 ? base - h - 8 : base + h + 16;
-    return `<rect x="${x}" y="${y}" width="72" height="${Math.max(h, 1)}" rx="10" style="fill:${color}"/><text x="${x + 36}" y="${ly}" text-anchor="middle" style="fill:var(--ink);font-size:13px;font-weight:600">${fmt(v)}</text>`;
+    return `<rect x="${x}" y="${y}" width="72" height="${Math.max(h, 1)}" rx="10" style="fill:${color}"/><text x="${x + 36}" y="${ly}" text-anchor="middle" style="fill:var(--ink);font-size:11px;font-weight:600">${fmt(v)}</text>`;
   };
   return `<div><p class="label" style="margin-bottom:8px">${title}</p><svg viewBox="0 0 ${W} ${H}" width="100%" role="img" aria-label="${title}: long ${fmt(a)}, short ${fmt(b)}">
     <line x1="20" x2="${W - 20}" y1="${base}" y2="${base}" style="stroke:var(--line)"/>
     ${bar(60, a, 'var(--green)')}${bar(170, b, 'var(--red)')}
-    <text x="96" y="214" text-anchor="middle" style="fill:var(--muted);font-size:13px">Long</text>
-    <text x="206" y="214" text-anchor="middle" style="fill:var(--muted);font-size:13px">Short</text></svg></div>`;
+    <text x="96" y="214" text-anchor="middle" style="fill:var(--muted);font-size:11px">Long</text>
+    <text x="206" y="214" text-anchor="middle" style="fill:var(--muted);font-size:11px">Short</text></svg></div>`;
 }
 function renderLS(){
   const L = dirStats('bull'), Sh = dirStats('bear');
@@ -1402,11 +1402,11 @@ function smoothPath(pts){
 }
 // White pill with a value (and optional green badge) above a point, like the reference tooltips.
 function pillLabel(x, y, text, sub, W){
-  const w = text.length * 8.2 + (sub ? 84 : 28), h = 30;
+  const w = text.length * 7 + (sub ? 76 : 24), h = 28;
   const rx = Math.min(Math.max(x - w / 2, 4), W - w - 4), ry = Math.max(y - h - 14, 4);
   const badge = sub ? `<rect x="${(rx + w - 60).toFixed(1)}" y="${ry + 5}" width="50" height="20" rx="10" style="fill:#EEF6D6"/><text x="${(rx + w - 35).toFixed(1)}" y="${ry + 19}" text-anchor="middle" style="fill:#4D7A05;font-size:11px;font-weight:600">${sub}</text>` : '';
   return `<rect x="${rx.toFixed(1)}" y="${ry}" width="${w.toFixed(1)}" height="${h}" rx="15" style="fill:#fff;stroke:#E6E7EA"/>
-    <text x="${(rx + 14).toFixed(1)}" y="${ry + 20}" style="fill:#111210;font-size:13px;font-weight:600">${text}</text>${badge}`;
+    <text x="${(rx + 14).toFixed(1)}" y="${ry + 20}" style="fill:#111210;font-size:11px;font-weight:600">${text}</text>${badge}`;
 }
 
 // A+ vs B: win rate and average R side by side (closed trades only).
@@ -1424,8 +1424,8 @@ function gradeCompare(){
       const v = g[key], h = Math.min(Math.abs(v) / max, 1) * span;
       const y = v >= 0 ? base - h : base, ly = v >= 0 ? base - h - 8 : base + h + 16;
       return `<rect x="${x}" y="${y}" width="72" height="${Math.max(h, 1)}" rx="10" style="fill:${v < 0 ? 'var(--red)' : g.c}"/>
-        <text x="${x + 36}" y="${ly}" text-anchor="middle" style="fill:var(--ink);font-size:13px;font-weight:600">${fmt(v)}</text>
-        <text x="${x + 36}" y="${H - 6}" text-anchor="middle" style="fill:var(--muted);font-size:13px">${g.l} · ${g.n} trades</text>`;
+        <text x="${x + 36}" y="${ly}" text-anchor="middle" style="fill:var(--ink);font-size:11px;font-weight:600">${fmt(v)}</text>
+        <text x="${x + 36}" y="${H - 6}" text-anchor="middle" style="fill:var(--muted);font-size:11px">${g.l} · ${g.n} trades</text>`;
     };
     return `<div><p class="label" style="margin-bottom:8px">${title}</p><svg viewBox="0 0 ${W} ${H}" width="100%" role="img" aria-label="${title}: ${G.map(g => g.l + ' ' + fmt(g[key])).join(', ')}">
       <line x1="20" x2="${W - 20}" y1="${base}" y2="${base}" style="stroke:var(--line)"/>${bar(60, G[0])}${bar(170, G[1])}</svg></div>`;
@@ -1481,7 +1481,7 @@ function renderStats(){
       <path d="${curve}" fill="none" style="stroke:#7DB31A" stroke-width="3"/>
       <circle cx="${X(last)}" cy="${Y(pts[last])}" r="6" style="fill:#fff;stroke:#7DB31A;stroke-width:3"/>
       ${pillLabel(X(last), Y(pts[last]), fmtR(pts[last]), '', W)}
-      <text x="${P}" y="${base - 6}" style="fill:#8B8E95;font-size:12px">0R</text></svg>`;
+      <text x="${P}" y="${base - 6}" style="fill:#8B8E95;font-size:10px">0R</text></svg>`;
   }
 
   const gradeStats = ['A','B','U'].map(g => {
@@ -1573,9 +1573,9 @@ function renderBalance(){
     let grid = '';
     for (let k = 0; k <= 4; k++) {
       const v = yMin + (yMax - yMin) * k / 4;
-      grid += `<line x1="${L}" x2="${W - R}" y1="${Y(v)}" y2="${Y(v)}" style="stroke:var(--line)"/><text x="${L - 10}" y="${Y(v) + 4}" text-anchor="end" style="fill:var(--muted);font-size:12px">$${(v / 1000).toFixed(1)}k</text>`;
+      grid += `<line x1="${L}" x2="${W - R}" y1="${Y(v)}" y2="${Y(v)}" style="stroke:var(--line)"/><text x="${L - 10}" y="${Y(v) + 4}" text-anchor="end" style="fill:var(--muted);font-size:10px">$${(v / 1000).toFixed(1)}k</text>`;
       const t = xMin + (xMax - xMin) * k / 4;
-      grid += `<text x="${X(t)}" y="${H - 10}" text-anchor="middle" style="fill:var(--muted);font-size:12px">${new Date(t).toLocaleDateString([], {month:'short', day:'numeric'})}</text>`;
+      grid += `<text x="${X(t)}" y="${H - 10}" text-anchor="middle" style="fill:var(--muted);font-size:10px">${new Date(t).toLocaleDateString([], {month:'short', day:'numeric'})}</text>`;
     }
     const lines = series.map(s => `<path d="${smoothPath(s.pts.map(p => [X(p.t), Y(p.v)]))}" fill="none" style="stroke:${s.color}" stroke-width="2.6"/>`).join('');
     const totalLine = total ? `<path d="${smoothPath(total.map(p => [X(p.t), Y(p.v)]))}" fill="none" style="stroke:#111210" stroke-width="2.2" stroke-dasharray="6 5"/>` : '';
@@ -1923,6 +1923,7 @@ function render(){
   renderLog();
   renderStats();
   renderProfile();
+  tradeEditModal();
   renderNews();
   const initials = (SET.profile.name || '').split(/\s+/).filter(Boolean).slice(0,2).map(w => w[0].toUpperCase()).join('');
   document.getElementById('avatarInit').textContent = initials || 'ME';
@@ -2036,6 +2037,31 @@ function ledgerEditModal(){
     <div class="btns" style="justify-content:space-between;margin-top:16px">
       <button type="button" class="btn danger sm" data-pact="delLedger" data-id="${esc(e.id)}">Remove entry</button>
       <span style="display:flex;gap:8px"><button type="button" class="btn light sm" data-pact="cancelLedgerEdit">Cancel</button><button type="button" class="btn sm" data-pact="saveLedgerEdit">Save changes</button></span>
+    </div></div></div>`;
+}
+
+// Popup to correct a recorded trade (pair, direction, prices, grade). Result is still set from the drawer.
+function tradeEditModal(){
+  let root = document.getElementById('tradeEditRoot');
+  if (!root) { root = document.createElement('div'); root.id = 'tradeEditRoot'; document.body.appendChild(root); }
+  const t = S.tradeEdit ? LOG.find(x => x.id === S.tradeEdit) : null;
+  if (!t) { root.innerHTML = ''; return; }
+  const pairs = [...new Set([...CALC_PAIRS, t.pair].filter(Boolean))];
+  root.innerHTML = `<div class="modal-bg"><div class="modal" role="dialog" aria-modal="true" aria-label="Edit trade">
+    <div class="acct-head-top" style="margin-bottom:16px"><p class="label" style="font-size:16px;color:var(--ink);font-weight:600">Edit trade</p>
+      <button type="button" class="btn light sm" data-act="cancel-trade">Close</button></div>
+    <div class="g2">
+      <label class="field"><span class="label">Pair</span><select id="tePair" class="inline">${pairs.map(p => `<option ${p === t.pair ? 'selected' : ''}>${esc(p)}</option>`).join('')}</select></label>
+      <label class="field"><span class="label">Direction</span><select id="teDir" class="inline"><option value="bull" ${t.dir === 'bull' ? 'selected' : ''}>Long (bullish)</option><option value="bear" ${t.dir === 'bear' ? 'selected' : ''}>Short (bearish)</option></select></label>
+      <label class="field"><span class="label">Entry</span><input id="teEntry" class="inline" type="number" step="any" value="${t.entry}"></label>
+      <label class="field"><span class="label">Stop</span><input id="teSl" class="inline" type="number" step="any" value="${t.sl}"></label>
+      <label class="field"><span class="label">Target</span><input id="teTp" class="inline" type="number" step="any" value="${t.tp}"></label>
+      <label class="field"><span class="label">Grade</span><select id="teGrade" class="inline">${[['A','A+'],['B','B'],['U','Ungraded']].map(([v, l]) => `<option value="${v}" ${t.grade === v ? 'selected' : ''}>${l}</option>`).join('')}</select></label>
+    </div>
+    <p class="msg" id="teMsg" style="margin-top:10px;color:#B42318"></p>
+    <div class="btns" style="justify-content:flex-end;margin-top:16px">
+      <button type="button" class="btn light sm" data-act="cancel-trade">Cancel</button>
+      <button type="button" class="btn sm" data-act="save-trade">Save changes</button>
     </div></div></div>`;
 }
 
@@ -2239,6 +2265,20 @@ document.addEventListener('click', e => {
   if (!a) return;
   const act = a.dataset.act;
 
+  if (act === 'edit-trade') { S.tradeEdit = a.dataset.id; return render(); }
+  if (act === 'cancel-trade') { S.tradeEdit = null; return render(); }
+  if (act === 'save-trade') {
+    const t = LOG.find(x => x.id === S.tradeEdit); if (!t) return;
+    const v = { pair: document.getElementById('tePair').value, dir: document.getElementById('teDir').value,
+      entry: +document.getElementById('teEntry').value, sl: +document.getElementById('teSl').value,
+      tp: +document.getElementById('teTp').value, grade: document.getElementById('teGrade').value };
+    const msg = document.getElementById('teMsg');
+    if ([v.entry, v.sl, v.tp].some(n => !isFinite(n) || n <= 0)) { msg.textContent = 'Enter entry, stop and target prices.'; return; }
+    const dirOk = v.dir === 'bull' ? (v.sl < v.entry && v.entry < v.tp) : (v.sl > v.entry && v.entry > v.tp);
+    if (!dirOk) { msg.textContent = 'Long needs stop below entry and target above. Short is the reverse.'; return; }
+    Object.assign(t, v, { rr: +(Math.abs(v.tp - v.entry) / Math.abs(v.entry - v.sl)).toFixed(2) });
+    saveAll(); S.tradeEdit = null; S.msg = 'Trade updated.'; return render();
+  }
   if (act === 'take-entry') {
     const rd = readiness();
     if (!rd.ok) return;
