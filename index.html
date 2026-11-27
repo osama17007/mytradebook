@@ -2423,7 +2423,7 @@ function startEdit(t){
     plan: { entry: String(t.entry ?? ''), sl: String(t.sl ?? ''), tp: String(t.tp ?? '') },
     pre: JSON.parse(JSON.stringify(t.pre || {})), calcPair: t.pair || S.calcPair
   });
-  render();
+  showTab('check');
 }
 function editProblem(rd){
   if (rd.v.stop) return rd.v.stop;
