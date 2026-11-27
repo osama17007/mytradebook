@@ -1076,6 +1076,7 @@ function renderOpen(){
 
 function renderVerdict(rd){
   const el = document.getElementById('verdict');
+  if (S.editId) { el.innerHTML = '<p class="label" style="margin-bottom:6px">Editing</p><h2 class="verdict-title">Editing a recorded trade</h2><p class="muted" style="margin:0">Save from here or the bar above.</p><div class="btns"><button class="btn green" data-act="save-edit">Save changes</button><button class="btn light" data-act="cancel-edit">Cancel</button></div>'; return; }
   if (S.stage !== 'pre') { el.innerHTML = '<p class="label" style="margin-bottom:12px">Actions</p><div class="btns"><button class="btn light" data-act="reset">Reset checklist</button></div>'; return; }
   const title = rd.ok ? 'Take the trade' : 'Not ready';
   const sub = rd.ok ? `${rd.v.pair} ${pairName(S.dir)} · Grade ${rd.g.grade === 'A' ? 'A+' : 'B'} · ${rd.tradeAcc.length} account(s)` : rd.block;
@@ -1118,11 +1119,11 @@ function renderDuring(){
         <div class="btns"><button class="btn light" data-act="ended-yes">Yes, go to review</button><button class="btn light" data-act="ended-no">No, still running</button></div></div>
     </div>`;
   const cs = (t.during || []).slice().reverse();
-  list.innerHTML = '<p class="label" style="margin-bottom:6px">Check-ins for this trade</p>' + (cs.length ? cs.map(c => {
+  list.innerHTML = '<p class="label" style="margin-bottom:6px">Check-ins for this trade</p>' + (cs.length ? cs.map((c, i) => { const idx = cs.length - 1 - i;
     const flagged = c.a.urge === 'acted';
     return `<div class="qblock"><div class="qhead"><span class="qtext">${when(c.ts)}</span>${flagged ? '<span class="chip stop">Urge acted on</span>' : ''}</div>
       <p class="msg">Feel: ${esc(moodLabel(c.a.feel))} · Urge: ${esc(urgeLabel(c.a.urge))}</p>
-      ${c.a.note ? `<p class="msg" style="color:var(--ink)">"${esc(c.a.note)}"</p>` : ''}</div>`;
+      ${c.a.note ? `<p class="msg" style="color:var(--ink)">"${esc(c.a.note)}"</p>` : ''}<div class="btns" style="margin-top:8px"><button class="btn light sm" data-act="edit-checkin" data-idx="${idx}">Edit</button><button class="btn light sm" data-act="del-checkin" data-idx="${idx}">Delete</button></div></div>`;
   }).join('') : '<p class="msg">No check-ins yet for this trade.</p>');
 }
 
@@ -1183,7 +1184,15 @@ function renderPost(){
   }
 }
 
-function renderBanner(){ document.getElementById('banner').textContent = S.msg || ''; }
+function renderBanner(){
+  const el = document.getElementById('banner');
+  const t = S.editId ? LOG.find(x => x.id === S.editId) : null;
+  if (!t) { el.textContent = S.msg || ''; return; }
+  el.innerHTML = `<div style="display:flex;justify-content:space-between;align-items:center;gap:12px;flex-wrap:wrap;background:var(--accent-soft);border-radius:16px;padding:12px 16px">
+    <span><b>Editing ${esc(t.pair || 'trade')} · ${when(t.ts)}</b> <span class="msg">Change the checklist, plan or sizing, then save.</span></span>
+    <span class="btns" style="margin:0"><button class="btn light sm" data-act="cancel-edit">Cancel</button><button class="btn sm" data-act="save-edit">Save changes</button></span></div>
+    ${S.msg ? `<p class="msg" style="margin:8px 0 0">${esc(S.msg)}</p>` : ''}`;
+}
 
 function renderStages(){
   const open = openTrades().length;
@@ -1350,7 +1359,7 @@ function renderDrawer(){
       <button class="btn light" data-act="result" data-mode="open" data-id="${x.id}">Mark open</button>
     </div>
     <div class="g2"><input id="customR" type="number" step="0.1" placeholder="Custom R, e.g. 1.4"><button class="btn" data-act="result" data-mode="custom" data-id="${x.id}">Save custom R</button></div>
-    <div class="btns"><button class="btn light" data-act="edit-trade" data-id="${x.id}">Edit trade</button><button class="btn light" data-act="delete" data-id="${x.id}">Delete entry</button></div></div>
+    <div class="btns"><button class="btn light" data-act="edit-trade" data-id="${x.id}">Edit in checklist</button><button class="btn light" data-act="delete" data-id="${x.id}">Delete entry</button></div></div>
     ${tradeDetails(x)}`;
 }
 
@@ -1923,7 +1932,6 @@ function render(){
   renderLog();
   renderStats();
   renderProfile();
-  tradeEditModal();
   renderNews();
   const initials = (SET.profile.name || '').split(/\s+/).filter(Boolean).slice(0,2).map(w => w[0].toUpperCase()).join('');
   document.getElementById('avatarInit').textContent = initials || 'ME';
@@ -2040,30 +2048,6 @@ function ledgerEditModal(){
     </div></div></div>`;
 }
 
-// Popup to correct a recorded trade (pair, direction, prices, grade). Result is still set from the drawer.
-function tradeEditModal(){
-  let root = document.getElementById('tradeEditRoot');
-  if (!root) { root = document.createElement('div'); root.id = 'tradeEditRoot'; document.body.appendChild(root); }
-  const t = S.tradeEdit ? LOG.find(x => x.id === S.tradeEdit) : null;
-  if (!t) { root.innerHTML = ''; return; }
-  const pairs = [...new Set([...CALC_PAIRS, t.pair].filter(Boolean))];
-  root.innerHTML = `<div class="modal-bg"><div class="modal" role="dialog" aria-modal="true" aria-label="Edit trade">
-    <div class="acct-head-top" style="margin-bottom:16px"><p class="label" style="font-size:16px;color:var(--ink);font-weight:600">Edit trade</p>
-      <button type="button" class="btn light sm" data-act="cancel-trade">Close</button></div>
-    <div class="g2">
-      <label class="field"><span class="label">Pair</span><select id="tePair" class="inline">${pairs.map(p => `<option ${p === t.pair ? 'selected' : ''}>${esc(p)}</option>`).join('')}</select></label>
-      <label class="field"><span class="label">Direction</span><select id="teDir" class="inline"><option value="bull" ${t.dir === 'bull' ? 'selected' : ''}>Long (bullish)</option><option value="bear" ${t.dir === 'bear' ? 'selected' : ''}>Short (bearish)</option></select></label>
-      <label class="field"><span class="label">Entry</span><input id="teEntry" class="inline" type="number" step="any" value="${t.entry}"></label>
-      <label class="field"><span class="label">Stop</span><input id="teSl" class="inline" type="number" step="any" value="${t.sl}"></label>
-      <label class="field"><span class="label">Target</span><input id="teTp" class="inline" type="number" step="any" value="${t.tp}"></label>
-      <label class="field"><span class="label">Grade</span><select id="teGrade" class="inline">${[['A','A+'],['B','B'],['U','Ungraded']].map(([v, l]) => `<option value="${v}" ${t.grade === v ? 'selected' : ''}>${l}</option>`).join('')}</select></label>
-    </div>
-    <p class="msg" id="teMsg" style="margin-top:10px;color:#B42318"></p>
-    <div class="btns" style="justify-content:flex-end;margin-top:16px">
-      <button type="button" class="btn light sm" data-act="cancel-trade">Cancel</button>
-      <button type="button" class="btn sm" data-act="save-trade">Save changes</button>
-    </div></div></div>`;
-}
 
 document.addEventListener('click', e => {
   if (e.target.closest('#loginSend')) return sendLink();
@@ -2265,20 +2249,9 @@ document.addEventListener('click', e => {
   if (!a) return;
   const act = a.dataset.act;
 
-  if (act === 'edit-trade') { S.tradeEdit = a.dataset.id; return render(); }
-  if (act === 'cancel-trade') { S.tradeEdit = null; return render(); }
-  if (act === 'save-trade') {
-    const t = LOG.find(x => x.id === S.tradeEdit); if (!t) return;
-    const v = { pair: document.getElementById('tePair').value, dir: document.getElementById('teDir').value,
-      entry: +document.getElementById('teEntry').value, sl: +document.getElementById('teSl').value,
-      tp: +document.getElementById('teTp').value, grade: document.getElementById('teGrade').value };
-    const msg = document.getElementById('teMsg');
-    if ([v.entry, v.sl, v.tp].some(n => !isFinite(n) || n <= 0)) { msg.textContent = 'Enter entry, stop and target prices.'; return; }
-    const dirOk = v.dir === 'bull' ? (v.sl < v.entry && v.entry < v.tp) : (v.sl > v.entry && v.entry > v.tp);
-    if (!dirOk) { msg.textContent = 'Long needs stop below entry and target above. Short is the reverse.'; return; }
-    Object.assign(t, v, { rr: +(Math.abs(v.tp - v.entry) / Math.abs(v.entry - v.sl)).toFixed(2) });
-    saveAll(); S.tradeEdit = null; S.msg = 'Trade updated.'; return render();
-  }
+  if (act === 'edit-trade') { const t = LOG.find(x => x.id === a.dataset.id); if (t) startEdit(t); return; }
+  if (act === 'cancel-edit') { S.editId = null; S.msg = ''; resetPre(); return render(); }
+  if (act === 'save-edit') { return saveEdit(); }
   if (act === 'take-entry') {
     const rd = readiness();
     if (!rd.ok) return;
@@ -2288,7 +2261,7 @@ document.addEventListener('click', e => {
     const isOff = used.some(u => u.off);
     LOG.unshift({ id, ts:new Date().toISOString(), action:'trade', pair:rd.v.pair, dir:S.dir, grade:rd.g.grade, reason:'',
       entry:+S.plan.entry, sl:+S.plan.sl, tp:+S.plan.tp, rr:+rd.pc.rr.toFixed(2), R:null, result:'open',
-      pre:JSON.parse(JSON.stringify(S.pre)), accountsUsed:used, offPlan:isOff, offPlanReason:isOff ? (S.offPlan.reason || '').trim() : '', missedPlanned:missed, rulesChecked:[], during:[], fibReached:null, ended:false });
+      pre:JSON.parse(JSON.stringify(S.pre)), accountsUsed:used, vet:snapVet(), offPlan:isOff, offPlanReason:isOff ? (S.offPlan.reason || '').trim() : '', missedPlanned:missed, rulesChecked:[], during:[], fibReached:null, ended:false });
     saveAll(); S.tid = id; S.stage = 'during'; resetPre();
     S.msg = 'Entry taken. Check in during the trade.';
     return render();
@@ -2301,6 +2274,8 @@ document.addEventListener('click', e => {
     return render();
   }
   if (act === 'reset') { resetPre(); S.msg = ''; return render(); }
+  if (act === 'del-checkin') { const t = LOG.find(x => x.id === S.tid); if (!t) return; t.during.splice(+a.dataset.idx, 1); saveAll(); S.msg = 'Check-in removed.'; return render(); }
+  if (act === 'edit-checkin') { const t = LOG.find(x => x.id === S.tid); if (!t) return; const i = +a.dataset.idx; S.dr.during = JSON.parse(JSON.stringify(t.during[i].a)); t.during.splice(i, 1); saveAll(); S.msg = 'Check-in loaded into the form. Save it again.'; return render(); }
   if (act === 'save-checkin') {
     const t = LOG.find(x => x.id === S.tid); if (!t) return;
     t.during = (t.during || []).concat([{ ts:new Date().toISOString(), a: JSON.parse(JSON.stringify(S.dr.during)) }]);
@@ -2433,3 +2408,47 @@ render();
 </script>
 </body>
 </html>
+
+// ---- Edit a recorded trade from the checklist onwards ----
+function snapVet(){
+  return { bias:S.bias, smallOK:S.smallOK, dxy:S.dxy, str:{eur:S.str.eur, gbp:S.str.gbp}, cmp:S.cmp, eurgbp:S.eurgbp, pairPick:S.pairPick };
+}
+function startEdit(t){
+  const v = t.vet || {};
+  Object.assign(S, {
+    editId: t.id, stage: 'pre', sel: t.id, msg: 'Editing this trade. Change anything, then save changes.',
+    bias: v.bias || 'clear', smallOK: !!v.smallOK, dir: t.dir || null,
+    dxy: v.dxy ?? null, str: { eur: v.str ? v.str.eur ?? null : null, gbp: v.str ? v.str.gbp ?? null : null },
+    cmp: v.cmp ?? null, eurgbp: v.eurgbp ?? null, pairPick: v.pairPick ?? null,
+    plan: { entry: String(t.entry ?? ''), sl: String(t.sl ?? ''), tp: String(t.tp ?? '') },
+    pre: JSON.parse(JSON.stringify(t.pre || {})), calcPair: t.pair || S.calcPair
+  });
+  render();
+}
+function editProblem(rd){
+  if (rd.v.stop) return rd.v.stop;
+  if (rd.v.pending) return rd.v.pending;
+  if (!rd.v.pair) return 'No pair confirmed. Finish vetting first.';
+  if (rd.g.grade === null) return 'Finish the setup checklist.';
+  if (rd.g.grade === 'U') return 'Setup does not meet A+ or B.';
+  if (!rd.pc.ok) return rd.pc.msg;
+  return null;
+}
+function saveEdit(){
+  const t = LOG.find(x => x.id === S.editId);
+  if (!t) { S.editId = null; return render(); }
+  const rd = readiness(), pc = rd.pc;
+  const problem = editProblem(rd);
+  if (problem) { S.msg = problem; return render(); }
+  Object.assign(t, { pair: rd.v.pair, dir: S.dir, grade: rd.g.grade, entry: +S.plan.entry, sl: +S.plan.sl, tp: +S.plan.tp, rr: +pc.rr.toFixed(2),
+    pre: JSON.parse(JSON.stringify(S.pre)), vet: snapVet() });
+  // Accounts keep the risk $ they had at entry; lots and commission follow the new stop.
+  (t.accountsUsed || []).forEach(u => {
+    if (u.riskUsd == null || !(pc.slPips > 0)) return;
+    u.lots = Math.floor(u.riskUsd / (pc.slPips * PIP_VALUE_PER_LOT) * 100) / 100;
+    const acc = SET.accounts.find(x => x.id === u.id);
+    if (acc) u.comm = u.lots * acc.commission;
+  });
+  saveAll(); S.editId = null; resetPre(); S.sel = t.id; S.msg = 'Trade updated.';
+  return render();
+}
