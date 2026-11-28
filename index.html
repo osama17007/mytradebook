@@ -687,7 +687,7 @@ function acctPnl(t, id){
 // Closed trades for one account, in entry order, with the P&L each one made on it.
 function acctEvents(a){
   return acctTrades(a.id).filter(t => t.result !== 'open')
-    .map(t => ({t: new Date(t.ts).getTime(), p: acctPnl(t, a.id), bal: (t.post && t.post.a && t.post.a.balances) ? t.post.a.balances[a.id] : undefined}))
+    .map(t => ({t: new Date(t.ts).getTime(), p: acctPnl(t, a.id), bal: tradeBalances(t)[a.id]}))
     .filter(e => e.p != null).sort((x, y) => x.t - y.t);
 }
 // Balance at a moment: the latest manually entered balance (or the starting balance) plus the P&L of trades after it.
@@ -1129,7 +1129,7 @@ function renderDuring(){
 
 function loadPost(){
   const t = LOG.find(x => x.id === S.ptid);
-  S.dr.post = t && t.post ? JSON.parse(JSON.stringify(t.post.a)) : {};
+  S.dr.post = t && t.post ? JSON.parse(JSON.stringify(t.post.a)) : (t && t.endBalances ? { balances: JSON.parse(JSON.stringify(t.endBalances)) } : {});
   if (t && !has(S.dr.post.r) && t.R != null) S.dr.post.r = t.R;
 }
 
@@ -1359,6 +1359,7 @@ function renderDrawer(){
       <button class="btn light" data-act="result" data-mode="open" data-id="${x.id}">Mark open</button>
     </div>
     <div class="g2"><input id="customR" type="number" step="0.1" placeholder="Custom R, e.g. 1.4"><button class="btn" data-act="result" data-mode="custom" data-id="${x.id}">Save custom R</button></div>
+    ${S.balAsk === x.id ? endBalanceCard(x) : ''}
     <div class="btns"><button class="btn light" data-act="edit-trade" data-id="${x.id}">Edit in checklist</button><button class="btn light" data-act="delete" data-id="${x.id}">Delete entry</button></div></div>
     ${tradeDetails(x)}`;
 }
@@ -2249,6 +2250,15 @@ document.addEventListener('click', e => {
   if (!a) return;
   const act = a.dataset.act;
 
+  if (act === 'save-endbal') {
+    const t = LOG.find(x => x.id === S.balAsk); if (!t) return;
+    const bal = { ...(t.endBalances || {}) };
+    document.querySelectorAll('[data-endbal]').forEach(i => { const v = parseFloat(i.value); if (!isNaN(v)) bal[i.dataset.endbal] = v; });
+    t.endBalances = bal;
+    if (t.post && t.post.a) t.post.a.balances = { ...bal };
+    S.balAsk = null; S.msg = 'Balances saved.'; saveAll(); return render();
+  }
+  if (act === 'skip-endbal') { S.balAsk = null; return render(); }
   if (act === 'edit-trade') { const t = LOG.find(x => x.id === a.dataset.id); if (t) startEdit(t); return; }
   if (act === 'cancel-edit') { S.editId = null; S.msg = ''; resetPre(); return render(); }
   if (act === 'save-edit') { return saveEdit(); }
@@ -2417,6 +2427,11 @@ function startEdit(t){
     plan: { entry: String(t.entry ?? ''), sl: String(t.sl ?? ''), tp: String(t.tp ?? '') },
     pre: JSON.parse(JSON.stringify(t.pre || {})), calcPair: t.pair || S.calcPair
   });
+  // Restore which accounts traded: week accounts not used are skipped; used accounts outside the week are off-plan.
+  const usedIds = (t.accountsUsed || []).map(u => u.id);
+  const weekIds = SET.accounts.filter(a => inWeek(a, SET.activeWeek)).map(a => a.id);
+  S.skipAcc = weekIds.filter(id => !usedIds.includes(id));
+  S.offPlan = { ids: usedIds.filter(id => !weekIds.includes(id)), reason: t.offPlanReason || '' };
   showTab('check');
 }
 function editProblem(rd){
@@ -2428,22 +2443,43 @@ function editProblem(rd){
   if (!rd.pc.ok) return rd.pc.msg;
   return null;
 }
+function tradeBalances(t){
+  return (t.post && t.post.a && t.post.a.balances) || t.endBalances || {};
+}
+function endBalanceCard(x){
+  const bal = tradeBalances(x);
+  return `<div class="card" style="margin-bottom:12px"><p class="label" style="margin-bottom:6px">End balance after this trade</p>
+    <p class="msg">Enter each account's balance after this trade. Leave blank to skip an account.</p>
+    ${(x.accountsUsed || []).map(u => `<div class="planrow" style="padding:10px 0"><span style="font-weight:600">${esc(u.firm)} · ${esc(u.number)}</span><input class="inline" style="width:200px" type="number" step="0.01" data-endbal="${u.id}" value="${has(bal[u.id]) ? bal[u.id] : ''}"></div>`).join('')}
+    <div class="btns"><button class="btn green" data-act="save-endbal">Save balances</button><button class="btn light" data-act="skip-endbal">Skip for now</button></div></div>`;
+}
 function saveEdit(){
   const t = LOG.find(x => x.id === S.editId);
   if (!t) { S.editId = null; return render(); }
   const rd = readiness(), pc = rd.pc;
-  const problem = editProblem(rd);
-  if (problem) { S.msg = problem; render(); const v = document.getElementById('verdict'); if (v && v.scrollIntoView) v.scrollIntoView({ block: 'center', behavior: 'smooth' }); return; }
-  Object.assign(t, { pair: rd.v.pair, dir: S.dir, grade: rd.g.grade, entry: +S.plan.entry, sl: +S.plan.sl, tp: +S.plan.tp, rr: +pc.rr.toFixed(2),
-    pre: JSON.parse(JSON.stringify(S.pre)), vet: snapVet() });
-  // Accounts keep the risk $ they had at entry; lots and commission follow the new stop.
-  (t.accountsUsed || []).forEach(u => {
-    if (u.riskUsd == null || !(pc.slPips > 0)) return;
-    u.lots = Math.floor(u.riskUsd / (pc.slPips * PIP_VALUE_PER_LOT) * 100) / 100;
-    const acc = SET.accounts.find(x => x.id === u.id);
-    if (acc) u.comm = u.lots * acc.commission;
+  const oldU = new Map((t.accountsUsed || []).map(u => [u.id, u]));
+  const oldIds = [...oldU.keys()].sort().join(',');
+  // Accounts are kept if they are ready now or were already on this trade. Risk $ stays as recorded at entry.
+  const used = rd.acc.filter(x => !x.skipped && (x.ok || oldU.has(x.acc.id))).map(x => {
+    const o = oldU.get(x.acc.id);
+    const riskUsd = o && o.riskUsd != null ? o.riskUsd : x.riskUsd;
+    const lots = pc.slPips > 0 && riskUsd != null ? Math.floor(riskUsd / (pc.slPips * PIP_VALUE_PER_LOT) * 100) / 100 : x.lots;
+    return { id: x.acc.id, firm: x.acc.firm, number: x.acc.number, risk: x.risk, lots, comm: lots * (x.acc.commission || 0), riskUsd, capital: x.capital, off: !!x.off };
   });
-  saveAll(); S.editId = null; resetPre(); S.sel = t.id; S.msg = 'Trade updated.';
+  let problem = editProblem(rd);
+  if (!problem && used.some(u => u.off) && !((S.offPlan && S.offPlan.reason) || '').trim()) problem = 'Give a reason for the off-plan accounts.';
+  if (problem) { S.msg = problem; render(); const v = document.getElementById('verdict'); if (v && v.scrollIntoView) v.scrollIntoView({ block: 'center', behavior: 'smooth' }); return; }
+  const newIds = used.map(u => u.id).sort().join(',');
+  Object.assign(t, { pair: rd.v.pair, dir: S.dir, grade: rd.g.grade, entry: +S.plan.entry, sl: +S.plan.sl, tp: +S.plan.tp, rr: +pc.rr.toFixed(2),
+    pre: JSON.parse(JSON.stringify(S.pre)), vet: snapVet(), accountsUsed: used,
+    offPlan: used.some(u => u.off), offPlanReason: used.some(u => u.off) ? S.offPlan.reason.trim() : '',
+    missedPlanned: rd.acc.filter(x => !x.off && x.skipped).map(x => ({ firm: x.acc.firm, number: x.acc.number })) });
+  saveAll();
+  S.editId = null; resetPre(); S.sel = t.id;
+  if (used.length && newIds !== oldIds) {
+    S.balAsk = t.id;
+    S.msg = 'Accounts changed. Enter each account\'s end balance after this trade.';
+  } else S.msg = 'Trade updated.';
   return showTab('log');
 }
 setInterval(renderNews, 30000);
